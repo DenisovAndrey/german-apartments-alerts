@@ -4,33 +4,28 @@ import { ILogger, LoggerFactory } from '../logging/Logger.js';
 import { MonitoringService } from '../monitoring/MonitoringService.js';
 import { Listing } from '../../domain/entities/Listing.js';
 
-const SUPPORTED_PROVIDERS = ['immoscout', 'immowelt', 'kleinanzeigen'] as const;
-const DEPRECATED_PROVIDERS = ['immonet'] as const;
-const ALL_PROVIDERS = [...SUPPORTED_PROVIDERS, ...DEPRECATED_PROVIDERS] as const;
-type AllProvider = (typeof ALL_PROVIDERS)[number];
+const SUPPORTED_PROVIDERS = ['immoscout', 'immowelt', 'immonet', 'kleinanzeigen'] as const;
 type SupportedProvider = (typeof SUPPORTED_PROVIDERS)[number];
 
 const PROVIDER_NAMES: Record<SupportedProvider, string> = {
   immoscout: 'ImmobilienScout24',
   immowelt: 'Immowelt',
+  immonet: 'Immonet',
   kleinanzeigen: 'Kleinanzeigen',
-};
-
-const ALL_PROVIDER_NAMES: Record<AllProvider, string> = {
-  ...PROVIDER_NAMES,
-  immonet: 'Immonet (use Immowelt)',
 };
 
 // Must match provider.name in each provider class (used for checkpoint storage)
 const CHECKPOINT_NAMES: Record<SupportedProvider, string> = {
   immoscout: 'ImmoScout',
   immowelt: 'Immowelt',
+  immonet: 'Immonet',
   kleinanzeigen: 'Kleinanzeigen',
 };
 
 interface UserState {
   awaitingUrlFor?: SupportedProvider;
   awaitingCityFor?: {
+    provider: 'immowelt' | 'immonet';
     estateType: string;
     distributionType: string;
   };
@@ -61,17 +56,12 @@ export class TelegramBot {
 
     this.bot.command('immoscout', (ctx) => this.handleProviderCommand(ctx, 'immoscout'));
     this.bot.command('immowelt', (ctx) => this.handleProviderCommand(ctx, 'immowelt'));
-    this.bot.command('immonet', (ctx) =>
-      ctx.reply(
-        '⚠️ Immonet has merged with Immowelt.\n\n' +
-          'All listings are now the same on both platforms.\n\n' +
-          'Please use /immowelt instead.'
-      )
-    );
+    this.bot.command('immonet', (ctx) => this.handleProviderCommand(ctx, 'immonet'));
     this.bot.command('kleinanzeigen', (ctx) => this.handleProviderCommand(ctx, 'kleinanzeigen'));
 
     this.bot.command('remove_immoscout', (ctx) => this.handleRemoveProvider(ctx, 'immoscout'));
     this.bot.command('remove_immowelt', (ctx) => this.handleRemoveProvider(ctx, 'immowelt'));
+    this.bot.command('remove_immonet', (ctx) => this.handleRemoveProvider(ctx, 'immonet'));
     this.bot.command('remove_kleinanzeigen', (ctx) => this.handleRemoveProvider(ctx, 'kleinanzeigen'));
 
     this.bot.on('text', (ctx) => this.handleTextMessage(ctx));
@@ -187,21 +177,6 @@ export class TelegramBot {
       });
     }
 
-    // Deprecated provider callbacks
-    this.bot.action('add_immonet', async (ctx) => {
-      await ctx.answerCbQuery();
-      await ctx.deleteMessage();
-      const keyboard = Markup.inlineKeyboard([
-        [Markup.button.callback('Add Immowelt instead', 'add_immowelt')],
-        [Markup.button.callback('Close', 'close_message')],
-      ]);
-      await ctx.reply(
-        '⚠️ Immonet has merged with Immowelt.\n\n' +
-          'All listings are now the same on both platforms.\n\n' +
-          'Please use Immowelt instead.',
-        keyboard
-      );
-    });
   }
 
   private async ensureUserFromCallback(ctx: Context): Promise<DbUser | null> {
@@ -286,6 +261,13 @@ export class TelegramBot {
         `4. Copy URL from browser\n\n` +
         `Example URL:\n` +
         `immowelt.de/liste/berlin/wohnungen/mieten?pma=1500&rmi=2`,
+      immonet:
+        `Immonet setup:\n\n` +
+        `1. Go to immonet.de\n` +
+        `2. Search for apartments in your city\n` +
+        `3. Apply filters (price, rooms, size)\n` +
+        `4. Copy URL from browser\n\n` +
+        `Note: Immonet uses the same listings as Immowelt.`,
       kleinanzeigen:
         `Kleinanzeigen setup:\n\n` +
         `1. Go to kleinanzeigen.de\n` +
@@ -323,13 +305,22 @@ export class TelegramBot {
       const text = ctx.message && 'text' in ctx.message ? ctx.message.text : '';
       if (!text) return;
 
-      // Handle city input for Immowelt URL conversion
+      // Handle city input for Immowelt/Immonet URL conversion
       if (state?.awaitingCityFor) {
         const city = text.toLowerCase().replace(/\s+/g, '-').replace(/ü/g, 'ue').replace(/ö/g, 'oe').replace(/ä/g, 'ae').replace(/ß/g, 'ss');
-        const { estateType, distributionType } = state.awaitingCityFor;
-        const convertedUrl = `https://www.immowelt.de/liste/${city}/${estateType}/${distributionType}`;
+        const { provider, estateType, distributionType } = state.awaitingCityFor;
 
-        this.userStates.set(from.id, { awaitingUrlFor: 'immowelt' });
+        // Build URL based on provider - Immonet uses different path format
+        let convertedUrl: string;
+        if (provider === 'immonet') {
+          // Immonet uses /immobiliensuche/{action}/{type}/{city} which gets converted by ImmonetProvider
+          const typeMap: Record<string, string> = { wohnungen: 'wohnung', haeuser: 'haus' };
+          convertedUrl = `https://www.immonet.de/immobiliensuche/${distributionType}/${typeMap[estateType] || estateType}/${city}`;
+        } else {
+          convertedUrl = `https://www.immowelt.de/liste/${city}/${estateType}/${distributionType}`;
+        }
+
+        this.userStates.set(from.id, { awaitingUrlFor: provider });
         const fakeCtx = { ...ctx, message: { ...ctx.message, text: convertedUrl } } as Context;
         await this.handleTextMessage(fakeCtx);
         return;
@@ -345,12 +336,12 @@ export class TelegramBot {
 
       const validation = this.validateProviderUrl(url, provider);
       if (!validation.valid) {
-        // Special handling for Immowelt classified-search - ask for city name
-        if (validation.error === 'immowelt_needs_city' && validation.parsedParams) {
+        // Special handling for Immowelt/Immonet classified-search - ask for city name
+        if (validation.error === 'needs_city' && validation.parsedParams) {
           this.userStates.set(from.id, { awaitingCityFor: validation.parsedParams });
           await ctx.reply(
             '🏙 This URL format requires a city name to work.\n\n' +
-              'Please type the city name for your search:\n\n' +
+              'Please type the city name (or multiple cities separated by commas):\n\n' +
               'Examples: Berlin, München, Hamburg, Frankfurt'
           );
           return;
@@ -400,12 +391,13 @@ export class TelegramBot {
   private validateProviderUrl(
     url: string,
     provider: SupportedProvider
-  ): { valid: boolean; error?: string; parsedParams?: { estateType: string; distributionType: string } } {
+  ): { valid: boolean; error?: string; parsedParams?: { provider: 'immowelt' | 'immonet'; estateType: string; distributionType: string } } {
     try {
       const parsed = new URL(url);
       const expectedDomains: Record<SupportedProvider, string[]> = {
         immoscout: ['immobilienscout24.de', 'www.immobilienscout24.de'],
         immowelt: ['immowelt.de', 'www.immowelt.de'],
+        immonet: ['immonet.de', 'www.immonet.de'],
         kleinanzeigen: ['kleinanzeigen.de', 'www.kleinanzeigen.de'],
       };
 
@@ -427,7 +419,7 @@ export class TelegramBot {
         }
       }
 
-      if (provider === 'immowelt') {
+      if (provider === 'immowelt' || provider === 'immonet') {
         // /classified-search and /classified-map URLs are blocked - need to convert to /liste/
         if (parsed.pathname.includes('/classified-search') || parsed.pathname.includes('/classified-map')) {
           const distType = parsed.searchParams.get('distributionTypes');
@@ -438,8 +430,8 @@ export class TelegramBot {
 
           return {
             valid: false,
-            error: 'immowelt_needs_city',
-            parsedParams: { estateType, distributionType },
+            error: 'needs_city',
+            parsedParams: { provider, estateType, distributionType },
           };
         }
       }
@@ -497,15 +489,11 @@ export class TelegramBot {
     }
 
     const unconfigured = SUPPORTED_PROVIDERS.filter((p) => !configuredSet.has(p));
-    if (unconfigured.length > 0 || DEPRECATED_PROVIDERS.length > 0) {
+    if (unconfigured.length > 0) {
       lines.push('Available to add:');
       for (const provider of unconfigured) {
         lines.push(`○ ${PROVIDER_NAMES[provider]}`);
         buttons.push([Markup.button.callback(`Add ${PROVIDER_NAMES[provider]}`, `add_${provider}`)]);
-      }
-      for (const provider of DEPRECATED_PROVIDERS) {
-        lines.push(`○ ${ALL_PROVIDER_NAMES[provider]}`);
-        buttons.push([Markup.button.callback(`Add ${ALL_PROVIDER_NAMES[provider]}`, `add_${provider}`)]);
       }
     }
 
@@ -566,9 +554,6 @@ export class TelegramBot {
       } else {
         buttons.push([Markup.button.callback(`Add ${PROVIDER_NAMES[provider]}`, `add_${provider}`)]);
       }
-    }
-    for (const provider of DEPRECATED_PROVIDERS) {
-      buttons.push([Markup.button.callback(`Add ${ALL_PROVIDER_NAMES[provider]}`, `add_${provider}`)]);
     }
     buttons.push([Markup.button.callback('Manage Notifications', 'show_list')]);
     buttons.push([Markup.button.callback('Close', 'close_message')]);
