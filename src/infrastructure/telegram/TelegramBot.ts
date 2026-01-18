@@ -305,8 +305,11 @@ export class TelegramBot {
       const text = ctx.message && 'text' in ctx.message ? ctx.message.text : '';
       if (!text) return;
 
+      this.logger.info(`handleTextMessage: from=${from.id}, text="${text.substring(0, 50)}", state=${JSON.stringify(state)}`);
+
       // Handle city input for Immowelt/Immonet URL conversion
       if (state?.awaitingCityFor) {
+        this.logger.info(`Processing city input: ${text}`);
         const city = text.toLowerCase().replace(/\s+/g, '-').replace(/ü/g, 'ue').replace(/ö/g, 'oe').replace(/ä/g, 'ae').replace(/ß/g, 'ss');
         const { provider, estateType, distributionType } = state.awaitingCityFor;
 
