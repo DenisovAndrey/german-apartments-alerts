@@ -72,6 +72,7 @@ export class App {
 
     if (this.adminBot) {
       await this.adminBot.start();
+      this.adminBot.startDailyBackup();
     }
 
     this.setupShutdownHandlers();

@@ -2,6 +2,8 @@ import { Telegraf, Context } from 'telegraf';
 import { DatabaseConnection } from '../database/Database.js';
 import { ILogger, LoggerFactory } from '../logging/Logger.js';
 import { FileLogger, LogEvent } from '../logging/FileLogger.js';
+import * as fs from 'fs';
+import * as path from 'path';
 
 export interface ErrorDetails {
   type: string;
@@ -16,6 +18,7 @@ export class AdminBot {
   private readonly bot: Telegraf;
   private readonly logger: ILogger;
   private readonly adminUserId: number | null;
+  private backupInterval: NodeJS.Timeout | null = null;
 
   constructor(
     token: string,
@@ -114,6 +117,11 @@ export class AdminBot {
         this.logger.error('Error in /logs command', err as Error);
       }
     });
+
+    this.bot.command('backup', async (ctx) => {
+      if (!this.isAuthorized(ctx)) return;
+      await this.sendBackup();
+    });
   }
 
   private formatLogEntry(log: LogEvent): string {
@@ -167,8 +175,53 @@ export class AdminBot {
   }
 
   stop(): void {
+    if (this.backupInterval) {
+      clearInterval(this.backupInterval);
+      this.backupInterval = null;
+    }
     this.bot.stop('SIGTERM');
     this.logger.info('Admin bot stopped');
+  }
+
+  startDailyBackup(): void {
+    const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
+    this.backupInterval = setInterval(() => {
+      this.sendBackup().catch((err) => {
+        this.logger.error('Failed to send daily backup', err as Error);
+      });
+    }, TWENTY_FOUR_HOURS);
+    this.logger.info('Daily backup scheduled');
+  }
+
+  private async sendBackup(): Promise<void> {
+    if (!this.adminUserId) return;
+
+    try {
+      const data = await this.db.exportAllData();
+      const backupDir = './data';
+      if (!fs.existsSync(backupDir)) {
+        fs.mkdirSync(backupDir, { recursive: true });
+      }
+
+      const timestamp = new Date().toISOString().split('T')[0];
+      const filename = `backup-${timestamp}.json`;
+      const filepath = path.join(backupDir, filename);
+
+      fs.writeFileSync(filepath, JSON.stringify(data, null, 2), 'utf8');
+
+      await this.bot.telegram.sendDocument(this.adminUserId, {
+        source: filepath,
+        filename,
+      }, {
+        caption: `📦 Database backup\nUsers: ${data.users.length}\nProviders: ${data.providers.length}`,
+      });
+
+      fs.unlinkSync(filepath);
+      this.logger.info('Backup sent successfully');
+    } catch (err) {
+      this.logger.error('Failed to send backup', err as Error);
+      await this.sendNotification(`❌ Backup failed: ${err}`);
+    }
   }
 
   async notifyUserRegistered(_userId: string, username: string | null, firstName: string): Promise<void> {

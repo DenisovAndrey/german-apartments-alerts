@@ -168,4 +168,13 @@ export class DatabaseConnection {
     await this.pool.end();
     this.logger.info('Database connection closed');
   }
+
+  async exportAllData(): Promise<{ users: DbUser[]; providers: DbUserProvider[] }> {
+    const users = await this.pool.query('SELECT * FROM users');
+    const providers = await this.pool.query('SELECT * FROM user_providers');
+    return {
+      users: users.rows,
+      providers: providers.rows,
+    };
+  }
 }
