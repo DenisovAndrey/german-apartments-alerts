@@ -323,9 +323,38 @@ export class TelegramBot {
           convertedUrl = `https://www.immowelt.de/liste/${city}/${estateType}/${distributionType}`;
         }
 
+        // Process the converted URL directly instead of recursive call
+        // (recursive call with fakeCtx loses the ctx.from getter)
         this.userStates.set(from.id, { awaitingUrlFor: provider });
-        const fakeCtx = { ...ctx, message: { ...ctx.message, text: convertedUrl } } as Context;
-        await this.handleTextMessage(fakeCtx);
+
+        const validation = this.validateProviderUrl(convertedUrl, provider);
+        if (!validation.valid) {
+          this.userStates.delete(from.id);
+          await ctx.reply('❌ Failed to convert URL. Please try a different search.');
+          await this.showMainMenu(ctx);
+          return;
+        }
+
+        const user = await this.ensureUser(ctx);
+        if (!user) return;
+
+        const cleanedUrl = this.cleanProviderUrl(convertedUrl, provider);
+        const existingProviders = await this.db.getUserProviders(user.id);
+        const isUpdate = existingProviders.some((p) => p.provider === provider);
+
+        await this.db.setUserProvider(user.id, provider, cleanedUrl);
+        await this.db.clearProviderCheckpoint(user.id, CHECKPOINT_NAMES[provider]);
+        this.userStates.delete(from.id);
+
+        if (isUpdate) {
+          await this.monitoring.logSearchUpdated(user.id, user.first_name, PROVIDER_NAMES[provider], cleanedUrl);
+        } else {
+          await this.monitoring.logSearchAdded(user.id, user.first_name, PROVIDER_NAMES[provider], cleanedUrl);
+        }
+
+        this.logger.info(`User ${user.first_name} set ${provider} search (from city input): ${cleanedUrl}`);
+        await ctx.reply(`✅ ${PROVIDER_NAMES[provider]} search saved!\n\nYou'll receive a confirmation when the first listing is found.`);
+        await this.showMainMenu(ctx);
         return;
       }
 
