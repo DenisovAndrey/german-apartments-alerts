@@ -427,14 +427,14 @@ export class TelegramBot {
       }
 
       if (provider === 'immowelt' || provider === 'immonet') {
-        // /classified-search URLs need conversion to /liste/ or /immobiliensuche/ format
-        if (parsed.pathname.includes('/classified-search')) {
-          // Parse parameters for conversion
+        // /classified-search and /classified-map URLs need conversion to /liste/ format
+        if (parsed.pathname.includes('/classified-search') || parsed.pathname.includes('/classified-map')) {
           const distType = parsed.searchParams.get('distributionTypes');
           const estType = parsed.searchParams.get('estateTypes');
 
           const distributionType = distType === 'Buy' ? 'kaufen' : 'mieten';
-          const estateType = estType === 'House' ? 'haeuser' : 'wohnungen';
+          // Handle comma-separated estate types (e.g., "House,Apartment")
+          const estateType = estType?.includes('House') ? 'haeuser' : 'wohnungen';
 
           return {
             valid: false,
