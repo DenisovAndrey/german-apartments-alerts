@@ -23,7 +23,21 @@ export class ImmoweltProvider extends BrowserBasedProvider {
   };
 
   constructor(url: string | undefined, browserService: IBrowserService) {
-    super(url, browserService);
+    super(url ? ImmoweltProvider.normalizeUrl(url) : url, browserService);
+  }
+
+  private static normalizeUrl(url: string): string {
+    try {
+      const parsed = new URL(url);
+
+      // Remove restrictive parameters that may cause empty results
+      const paramsToRemove = ['projectTypes'];
+      paramsToRemove.forEach((param) => parsed.searchParams.delete(param));
+
+      return parsed.toString();
+    } catch {
+      return url;
+    }
   }
 
   protected transformListing(raw: RawListing): Listing {
