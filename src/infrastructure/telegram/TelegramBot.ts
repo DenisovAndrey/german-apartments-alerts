@@ -24,7 +24,8 @@ const CHECKPOINT_NAMES: Record<SupportedProvider, string> = {
 
 interface UserState {
   awaitingUrlFor?: SupportedProvider;
-  awaitingCityForImmowelt?: {
+  awaitingCityFor?: {
+    provider: 'immowelt' | 'immonet';
     estateType: string;
     distributionType: string;
   };
@@ -305,13 +306,20 @@ export class TelegramBot {
       const text = ctx.message && 'text' in ctx.message ? ctx.message.text : '';
       if (!text) return;
 
-      // Handle city input for Immowelt URL conversion
-      if (state?.awaitingCityForImmowelt) {
-        const city = text.toLowerCase().replace(/\s+/g, '-');
-        const { estateType, distributionType } = state.awaitingCityForImmowelt;
-        const convertedUrl = `https://www.immowelt.de/liste/${city}/${estateType}/${distributionType}`;
+      // Handle city input for Immowelt/Immonet URL conversion
+      if (state?.awaitingCityFor) {
+        const city = text.toLowerCase().replace(/\s+/g, '-').replace(/ü/g, 'ue').replace(/ö/g, 'oe').replace(/ä/g, 'ae').replace(/ß/g, 'ss');
+        const { provider, estateType, distributionType } = state.awaitingCityFor;
 
-        this.userStates.set(from.id, { awaitingUrlFor: 'immowelt' });
+        let convertedUrl: string;
+        if (provider === 'immowelt') {
+          convertedUrl = `https://www.immowelt.de/liste/${city}/${estateType}/${distributionType}`;
+        } else {
+          // Immonet format: /immobiliensuche/mieten/wohnung/city
+          convertedUrl = `https://www.immonet.de/immobiliensuche/${distributionType}/${estateType === 'wohnungen' ? 'wohnung' : 'haus'}/${city}`;
+        }
+
+        this.userStates.set(from.id, { awaitingUrlFor: provider });
         // Re-process with converted URL
         const fakeCtx = { ...ctx, message: { ...ctx.message, text: convertedUrl } } as Context;
         await this.handleTextMessage(fakeCtx);
@@ -328,10 +336,17 @@ export class TelegramBot {
 
       const validation = this.validateProviderUrl(url, provider);
       if (!validation.valid) {
-        // Special handling for Immowelt classified-search - ask for city
-        if (validation.error === 'immowelt_classified_search_not_supported' && validation.parsedParams) {
+        // Special handling for Immowelt/Immonet classified-search - ask for city
+        if (
+          (validation.error === 'immowelt_classified_search_not_supported' ||
+            validation.error === 'immonet_classified_search_not_supported') &&
+          validation.parsedParams
+        ) {
           this.userStates.set(from.id, {
-            awaitingCityForImmowelt: validation.parsedParams,
+            awaitingCityFor: {
+              provider: validation.error === 'immowelt_classified_search_not_supported' ? 'immowelt' : 'immonet',
+              ...validation.parsedParams,
+            },
           });
           await ctx.reply(
             '🏙 Please type the city name for your search:\n\n' +
@@ -412,8 +427,8 @@ export class TelegramBot {
         }
       }
 
-      if (provider === 'immowelt') {
-        // /classified-search URLs need conversion to /liste/ format
+      if (provider === 'immowelt' || provider === 'immonet') {
+        // /classified-search URLs need conversion to /liste/ or /immobiliensuche/ format
         if (parsed.pathname.includes('/classified-search')) {
           // Parse parameters for conversion
           const distType = parsed.searchParams.get('distributionTypes');
@@ -424,7 +439,7 @@ export class TelegramBot {
 
           return {
             valid: false,
-            error: 'immowelt_classified_search_not_supported',
+            error: provider === 'immowelt' ? 'immowelt_classified_search_not_supported' : 'immonet_classified_search_not_supported',
             parsedParams: { estateType, distributionType },
           };
         }
