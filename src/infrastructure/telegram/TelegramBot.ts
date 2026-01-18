@@ -30,11 +30,6 @@ const CHECKPOINT_NAMES: Record<SupportedProvider, string> = {
 
 interface UserState {
   awaitingUrlFor?: SupportedProvider;
-  awaitingCityFor?: {
-    provider: 'immowelt';
-    estateType: string;
-    distributionType: string;
-  };
 }
 
 export class TelegramBot {
@@ -324,18 +319,6 @@ export class TelegramBot {
       const text = ctx.message && 'text' in ctx.message ? ctx.message.text : '';
       if (!text) return;
 
-      // Handle city input for Immowelt URL conversion
-      if (state?.awaitingCityFor) {
-        const city = text.toLowerCase().replace(/\s+/g, '-').replace(/ü/g, 'ue').replace(/ö/g, 'oe').replace(/ä/g, 'ae').replace(/ß/g, 'ss');
-        const { estateType, distributionType } = state.awaitingCityFor;
-        const convertedUrl = `https://www.immowelt.de/liste/${city}/${estateType}/${distributionType}`;
-
-        this.userStates.set(from.id, { awaitingUrlFor: 'immowelt' });
-        const fakeCtx = { ...ctx, message: { ...ctx.message, text: convertedUrl } } as Context;
-        await this.handleTextMessage(fakeCtx);
-        return;
-      }
-
       if (!state?.awaitingUrlFor) {
         await this.showMainMenu(ctx);
         return;
@@ -346,21 +329,6 @@ export class TelegramBot {
 
       const validation = this.validateProviderUrl(url, provider);
       if (!validation.valid) {
-        // Special handling for Immowelt classified-search - ask for city
-        if (validation.error === 'immowelt_classified_search_not_supported' && validation.parsedParams) {
-          this.userStates.set(from.id, {
-            awaitingCityFor: {
-              provider: 'immowelt',
-              ...validation.parsedParams,
-            },
-          });
-          await ctx.reply(
-            '🏙 Please type the city name for your search:\n\n' +
-              'Examples: Berlin, München, Hamburg, Frankfurt'
-          );
-          return;
-        }
-
         this.userStates.delete(from.id);
         if (validation.error === 'immoscout_no_city') {
           await ctx.reply('❌ ImmoScout requires a city or geocodes in the URL.\n\nExamples:\n.../bayern/muenchen/wohnung-mieten\n...?geocodes=1276002059,1276003001');
@@ -405,7 +373,7 @@ export class TelegramBot {
   private validateProviderUrl(
     url: string,
     provider: SupportedProvider
-  ): { valid: boolean; error?: string; parsedParams?: { estateType: string; distributionType: string } } {
+  ): { valid: boolean; error?: string } {
     try {
       const parsed = new URL(url);
       const expectedDomains: Record<SupportedProvider, string[]> = {
@@ -432,22 +400,6 @@ export class TelegramBot {
         }
       }
 
-      if (provider === 'immowelt') {
-        // /classified-search and /classified-map URLs need conversion to /liste/ format
-        if (parsed.pathname.includes('/classified-search') || parsed.pathname.includes('/classified-map')) {
-          const distType = parsed.searchParams.get('distributionTypes');
-          const estType = parsed.searchParams.get('estateTypes');
-
-          const distributionType = distType === 'Buy' ? 'kaufen' : 'mieten';
-          const estateType = estType?.includes('House') ? 'haeuser' : 'wohnungen';
-
-          return {
-            valid: false,
-            error: 'immowelt_classified_search_not_supported',
-            parsedParams: { estateType, distributionType },
-          };
-        }
-      }
 
       return { valid: true };
     } catch {
