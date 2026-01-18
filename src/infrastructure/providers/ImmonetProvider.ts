@@ -33,6 +33,15 @@ export class ImmonetProvider extends BrowserBasedProvider {
       const parsed = new URL(url);
       // Replace immonet.de with immowelt.de
       parsed.hostname = parsed.hostname.replace('immonet.de', 'immowelt.de');
+
+      // Convert /immobiliensuche/{action}/{type}/{city} to /liste/{city}/{types}/{action}
+      const pathMatch = parsed.pathname.match(/^\/immobiliensuche\/(mieten|kaufen)\/(wohnung|haus)\/([^/]+)/);
+      if (pathMatch) {
+        const [, action, type, city] = pathMatch;
+        const typeMap: Record<string, string> = { wohnung: 'wohnungen', haus: 'haeuser' };
+        parsed.pathname = `/liste/${city}/${typeMap[type] || type}/${action}`;
+      }
+
       return parsed.toString();
     } catch {
       return url;
