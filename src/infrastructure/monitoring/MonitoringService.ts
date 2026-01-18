@@ -44,10 +44,11 @@ export class MonitoringService {
   async logScrapingError(
     provider: string,
     error: Error | string,
-    userId?: string
+    userId?: string,
+    url?: string
   ): Promise<void> {
     const errorMessage = error instanceof Error ? error.message : error;
-    this.fileLogger.logScrapingError(provider, errorMessage, userId);
+    this.fileLogger.logScrapingError(provider, errorMessage, userId, url);
 
     const details: ErrorDetails = {
       type: error instanceof Error ? error.constructor.name : 'ScrapingError',
@@ -55,6 +56,7 @@ export class MonitoringService {
       provider,
       source: 'Scraper',
       stack: error instanceof Error ? error.stack : undefined,
+      url,
     };
     await this.adminBot?.notifyError(details);
   }

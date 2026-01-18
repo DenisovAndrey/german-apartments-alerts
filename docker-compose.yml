@@ -24,7 +24,7 @@ services:
         condition: service_healthy
     environment:
       - DATABASE_URL=postgresql://scraper:scraper123@postgres:5432/scraper
-      - INTERVAL_MS=25000
+      - INTERVAL_MS=60000
       - MAX_RESULTS_PER_PROVIDER=10
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - USERS=${USERS}

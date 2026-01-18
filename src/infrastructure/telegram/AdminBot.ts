@@ -9,6 +9,7 @@ export interface ErrorDetails {
   provider?: string;
   source?: string;
   stack?: string;
+  url?: string;
 }
 
 export class AdminBot {
@@ -145,7 +146,7 @@ export class AdminBot {
       case 'SEARCH_REMOVED':
         return `${data.userName} removed ${data.provider}`;
       case 'SCRAPING_ERROR':
-        return `${data.provider}: ${data.error}`;
+        return `${data.provider}: ${data.error}${data.url ? `\nURL: ${data.url}` : ''}`;
       case 'CRITICAL_ERROR':
         return `${data.source}: ${data.error}`;
       default:
@@ -194,6 +195,9 @@ export class AdminBot {
     lines.push('');
     lines.push(`Type: ${details.type}`);
     lines.push(`Message: ${details.message}`);
+    if (details.url) {
+      lines.push(`URL: ${details.url}`);
+    }
     if (details.stack) {
       const trimmedStack = details.stack.split('\n').slice(0, 5).join('\n');
       lines.push(`\nStack:\n${trimmedStack}`);

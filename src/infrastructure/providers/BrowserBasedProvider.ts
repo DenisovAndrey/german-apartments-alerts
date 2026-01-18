@@ -50,13 +50,11 @@ export abstract class BrowserBasedProvider extends BaseProvider {
 
       const duration = Date.now() - startTime;
 
-      // Check for potential issues
       if (rawListings.length === 0) {
-        this.logger.warn(`No listings found - possible blocking or selector change`, {
-          duration: `${duration}ms`,
-          selector: this.options.crawlContainer,
-        });
-      } else if (validListings.length < rawListings.length * 0.5) {
+        throw new Error('No listings found - possible blocking or selector change');
+      }
+
+      if (validListings.length < rawListings.length * 0.5) {
         this.logger.warn(`Many invalid listings filtered out`, {
           raw: rawListings.length,
           valid: validListings.length,

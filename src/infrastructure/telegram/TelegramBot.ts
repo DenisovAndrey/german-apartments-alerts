@@ -315,17 +315,20 @@ export class TelegramBot {
       const user = await this.ensureUser(ctx);
       if (!user) return;
 
+      // Clean URL to remove problematic parameters (e.g., saveSearchId for ImmoScout)
+      const cleanedUrl = this.cleanProviderUrl(url, provider);
+
       const existingProviders = await this.db.getUserProviders(user.id);
       const isUpdate = existingProviders.some((p) => p.provider === provider);
 
-      await this.db.setUserProvider(user.id, provider, url);
+      await this.db.setUserProvider(user.id, provider, cleanedUrl);
       await this.db.clearProviderCheckpoint(user.id, CHECKPOINT_NAMES[provider]);
       this.userStates.delete(from.id);
 
       if (isUpdate) {
-        await this.monitoring.logSearchUpdated(user.id, user.first_name, PROVIDER_NAMES[provider], url);
+        await this.monitoring.logSearchUpdated(user.id, user.first_name, PROVIDER_NAMES[provider], cleanedUrl);
       } else {
-        await this.monitoring.logSearchAdded(user.id, user.first_name, PROVIDER_NAMES[provider], url);
+        await this.monitoring.logSearchAdded(user.id, user.first_name, PROVIDER_NAMES[provider], cleanedUrl);
       }
 
       this.logger.info(`User ${user.first_name} set ${provider} search`);
@@ -369,6 +372,28 @@ export class TelegramBot {
       return { valid: true };
     } catch {
       return { valid: false, error: 'invalid_url' };
+    }
+  }
+
+  private cleanProviderUrl(url: string, provider: SupportedProvider): string {
+    try {
+      const parsed = new URL(url);
+
+      // Remove hash fragment (e.g., #/ at the end)
+      parsed.hash = '';
+
+      if (provider === 'immoscout') {
+        // Remove saveSearchId - it's user-specific and breaks the mobile API
+        parsed.searchParams.delete('saveSearchId');
+        // Normalize enteredFrom to result_list
+        if (parsed.searchParams.has('enteredFrom')) {
+          parsed.searchParams.set('enteredFrom', 'result_list');
+        }
+      }
+
+      return parsed.toString();
+    } catch {
+      return url;
     }
   }
 

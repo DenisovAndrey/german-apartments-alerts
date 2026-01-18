@@ -74,11 +74,11 @@ export class FileLogger {
     });
   }
 
-  logScrapingError(provider: string, error: string, userId?: string): void {
+  logScrapingError(provider: string, error: string, userId?: string, url?: string): void {
     this.write({
       timestamp: new Date().toISOString(),
       type: 'SCRAPING_ERROR',
-      data: { provider, error, userId },
+      data: { provider, error, userId, url },
     });
   }
 

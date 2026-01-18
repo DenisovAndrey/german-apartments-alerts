@@ -77,7 +77,9 @@ export abstract class BaseProvider implements IListingProvider {
       enrichedError.stack = error.stack;
       MonitoringService.getInstance().logScrapingError(
         this.name,
-        enrichedError
+        enrichedError,
+        undefined,
+        this.url
       ).catch(() => {});
     }
   }

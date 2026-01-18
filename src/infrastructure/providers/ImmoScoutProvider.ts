@@ -9,7 +9,8 @@ export class ImmoScoutProvider extends BaseProvider {
 
   private ensureSortByNewest(url: string): string {
     if (url.includes('sorting=')) return url;
-    return url + (url.includes('?') ? '&' : '?') + 'sorting=2';
+    // Mobile API uses -firstactivation for newest first (not sorting=2 which is web-only)
+    return url + (url.includes('?') ? '&' : '?') + 'sorting=-firstactivation';
   }
 
   async scrape(maxResults: number): Promise<Listing[]> {
@@ -25,7 +26,7 @@ export class ImmoScoutProvider extends BaseProvider {
       const listings = await immoscout.config.getListings(immoscout.config.url);
 
       if (!listings || listings.length === 0) {
-        this.logger.warn(`No listings returned from API - possible blocking or API change`);
+        throw new Error('No listings returned - possible API error or blocking');
       }
 
       const result = listings.slice(0, maxResults).map((l: RawListing) => {
