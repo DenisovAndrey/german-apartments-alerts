@@ -24,6 +24,10 @@ const CHECKPOINT_NAMES: Record<SupportedProvider, string> = {
 
 interface UserState {
   awaitingUrlFor?: SupportedProvider;
+  awaitingCityForImmowelt?: {
+    estateType: string;
+    distributionType: string;
+  };
 }
 
 export class TelegramBot {
@@ -298,34 +302,49 @@ export class TelegramBot {
       if (!from) return;
 
       const state = this.userStates.get(from.id);
+      const text = ctx.message && 'text' in ctx.message ? ctx.message.text : '';
+      if (!text) return;
+
+      // Handle city input for Immowelt URL conversion
+      if (state?.awaitingCityForImmowelt) {
+        const city = text.toLowerCase().replace(/\s+/g, '-');
+        const { estateType, distributionType } = state.awaitingCityForImmowelt;
+        const convertedUrl = `https://www.immowelt.de/liste/${city}/${estateType}/${distributionType}`;
+
+        this.userStates.set(from.id, { awaitingUrlFor: 'immowelt' });
+        // Re-process with converted URL
+        const fakeCtx = { ...ctx, message: { ...ctx.message, text: convertedUrl } } as Context;
+        await this.handleTextMessage(fakeCtx);
+        return;
+      }
+
       if (!state?.awaitingUrlFor) {
         await this.showMainMenu(ctx);
         return;
       }
-
-      const text = ctx.message && 'text' in ctx.message ? ctx.message.text : '';
-      if (!text) return;
 
       const url = text.replace(/\s+/g, '');
       const provider = state.awaitingUrlFor;
 
       const validation = this.validateProviderUrl(url, provider);
       if (!validation.valid) {
+        // Special handling for Immowelt classified-search - ask for city
+        if (validation.error === 'immowelt_classified_search_not_supported' && validation.parsedParams) {
+          this.userStates.set(from.id, {
+            awaitingCityForImmowelt: validation.parsedParams,
+          });
+          await ctx.reply(
+            '🏙 Please type the city name for your search:\n\n' +
+              'Examples: Berlin, München, Hamburg, Frankfurt'
+          );
+          return;
+        }
+
         this.userStates.delete(from.id);
         if (validation.error === 'immoscout_no_city') {
           await ctx.reply('❌ ImmoScout requires a city or geocodes in the URL.\n\nExamples:\n.../bayern/muenchen/wohnung-mieten\n...?geocodes=1276002059,1276003001');
         } else if (validation.error === 'immoscout_shape_not_supported') {
           await ctx.reply('❌ ImmoScout shape/polygon search is not supported.\n\nPlease use a city-based search URL.');
-        } else if (validation.error === 'immowelt_classified_search_not_supported') {
-          await ctx.reply(
-            '❌ This Immowelt URL format is not supported.\n\n' +
-              'Please use a standard search URL:\n' +
-              '1. Go to immowelt.de\n' +
-              '2. Search for apartments (Wohnung mieten)\n' +
-              '3. Select a city\n' +
-              '4. Copy the URL (should contain /liste/)\n\n' +
-              'Example:\nimmowelt.de/liste/muenchen/wohnungen/mieten'
-          );
         } else {
           await ctx.reply('❌ Incorrect URL, cancelled.');
         }
@@ -362,7 +381,10 @@ export class TelegramBot {
     }
   }
 
-  private validateProviderUrl(url: string, provider: SupportedProvider): { valid: boolean; error?: string } {
+  private validateProviderUrl(
+    url: string,
+    provider: SupportedProvider
+  ): { valid: boolean; error?: string; parsedParams?: { estateType: string; distributionType: string } } {
     try {
       const parsed = new URL(url);
       const expectedDomains: Record<SupportedProvider, string[]> = {
@@ -391,9 +413,20 @@ export class TelegramBot {
       }
 
       if (provider === 'immowelt') {
-        // /classified-search URLs are blocked by bot protection, only /liste/ works
+        // /classified-search URLs need conversion to /liste/ format
         if (parsed.pathname.includes('/classified-search')) {
-          return { valid: false, error: 'immowelt_classified_search_not_supported' };
+          // Parse parameters for conversion
+          const distType = parsed.searchParams.get('distributionTypes');
+          const estType = parsed.searchParams.get('estateTypes');
+
+          const distributionType = distType === 'Buy' ? 'kaufen' : 'mieten';
+          const estateType = estType === 'House' ? 'haeuser' : 'wohnungen';
+
+          return {
+            valid: false,
+            error: 'immowelt_classified_search_not_supported',
+            parsedParams: { estateType, distributionType },
+          };
         }
       }
 
