@@ -1,0 +1,32 @@
+{
+  "name": "apartment-scraper",
+  "version": "2.0.0",
+  "type": "module",
+  "description": "Multi-provider apartment scraper with clean architecture",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "lint": "eslint src --ext .ts"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.6.2",
+    "dotenv": "^17.2.3",
+    "fredy": "github:orangecoding/fredy",
+    "pg": "^8.17.1",
+    "puppeteer": "^24.35.0",
+    "query-string": "^9.0.0",
+    "telegraf": "^4.16.3"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^22.0.0",
+    "@types/pg": "^8.16.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}

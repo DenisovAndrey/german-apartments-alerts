@@ -1,0 +1,34 @@
+services:
+  postgres:
+    image: postgres:latest
+    container_name: scraper-db
+    environment:
+      POSTGRES_USER: scraper
+      POSTGRES_PASSWORD: scraper123
+      POSTGRES_DB: scraper
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U scraper -d scraper"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  scraper:
+    build: .
+    container_name: scraper-app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql://scraper:scraper123@postgres:5432/scraper
+      - INTERVAL_MS=25000
+      - MAX_RESULTS_PER_PROVIDER=10
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - USERS=${USERS}
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

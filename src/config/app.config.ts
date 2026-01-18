@@ -1,0 +1,15 @@
+import 'dotenv/config';
+
+export interface AppConfig {
+  intervalMs: number;
+  maxResultsPerProvider: number;
+  databaseUrl: string;
+  telegramBotToken?: string;
+}
+
+export const loadAppConfig = (): AppConfig => ({
+  intervalMs: parseInt(process.env.INTERVAL_MS || '25000', 10),
+  maxResultsPerProvider: parseInt(process.env.MAX_RESULTS_PER_PROVIDER || '10', 10),
+  databaseUrl: process.env.DATABASE_URL || 'postgresql://scraper:scraper123@localhost:5432/scraper',
+  telegramBotToken: process.env.TELEGRAM_BOT_TOKEN,
+});
