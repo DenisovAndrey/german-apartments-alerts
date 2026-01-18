@@ -56,9 +56,7 @@ export class TelegramBot {
 
     this.bot.command('immoscout', (ctx) => this.handleProviderCommand(ctx, 'immoscout'));
     this.bot.command('immowelt', (ctx) => this.handleProviderCommand(ctx, 'immowelt'));
-    this.bot.command('immonet', (ctx) =>
-      ctx.reply('⚠️ Immonet has been merged with Immowelt.\n\nPlease use /immowelt instead.')
-    );
+    this.bot.command('immonet', (ctx) => this.handleProviderCommand(ctx, 'immonet'));
     this.bot.command('kleinanzeigen', (ctx) => this.handleProviderCommand(ctx, 'kleinanzeigen'));
 
     this.bot.command('remove_immoscout', (ctx) => this.handleRemoveProvider(ctx, 'immoscout'));

@@ -6,35 +6,45 @@ export class ImmonetProvider extends BrowserBasedProvider {
   readonly name = 'Immonet';
   readonly id = 'immonet';
 
+  // Same selectors as Immowelt - they share the same platform
   protected readonly options: BrowserProviderOptions = {
-    crawlContainer: 'div[data-testid="serp-core-classified-card-testid"]',
+    crawlContainer:
+      'div[data-testid="serp-core-scrollablelistview-testid"]:not(div[data-testid="serp-enlargementlist-testid"] div[data-testid="serp-card-testid"]) div[data-testid="serp-core-classified-card-testid"]',
     crawlFields: {
-      id: 'button@title',
-      title: 'button@title',
+      id: 'a@href',
       price: 'div[data-testid="cardmfe-price-testid"]',
       size: 'div[data-testid="cardmfe-keyfacts-testid"]',
+      title: 'div[data-testid="cardmfe-description-box-text-test-id"] > div:nth-of-type(2)',
+      link: 'a@href',
       address: 'div[data-testid="cardmfe-description-box-address"]',
-      image: 'div[data-testid="cardmfe-picture-box-test-id"] img@src',
-      link: 'button@data-base',
+      image: 'div[data-testid="cardmfe-picture-box-opacity-layer-test-id"] img@src',
     },
     waitForSelector: 'div[data-testid="serp-gridcontainer-testid"]',
     sortByDateParam: 'order=DateDesc',
   };
 
   constructor(url: string | undefined, browserService: IBrowserService) {
-    super(url, browserService);
+    // Immonet has merged with Immowelt - convert URLs to use Immowelt domain
+    super(url ? ImmonetProvider.convertToImmowelt(url) : url, browserService);
+  }
+
+  private static convertToImmowelt(url: string): string {
+    try {
+      const parsed = new URL(url);
+      // Replace immonet.de with immowelt.de
+      parsed.hostname = parsed.hostname.replace('immonet.de', 'immowelt.de');
+      return parsed.toString();
+    } catch {
+      return url;
+    }
   }
 
   protected transformListing(raw: RawListing): Listing {
     const listing = this.normalizeListing(raw, this.name);
 
-    // Immonet returns URL-encoded links in data-base attribute
-    if (listing.link) {
-      try {
-        listing.link = decodeURIComponent(listing.link);
-      } catch {
-        // If decoding fails, keep original
-      }
+    // Fix relative links (same as Immowelt)
+    if (listing.link && !listing.link.startsWith('http')) {
+      listing.link = `https://www.immowelt.de${listing.link.startsWith('/') ? '' : '/'}${listing.link}`;
     }
 
     return listing;
