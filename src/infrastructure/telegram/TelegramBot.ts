@@ -316,6 +316,16 @@ export class TelegramBot {
           await ctx.reply('❌ ImmoScout requires a city or geocodes in the URL.\n\nExamples:\n.../bayern/muenchen/wohnung-mieten\n...?geocodes=1276002059,1276003001');
         } else if (validation.error === 'immoscout_shape_not_supported') {
           await ctx.reply('❌ ImmoScout shape/polygon search is not supported.\n\nPlease use a city-based search URL.');
+        } else if (validation.error === 'immowelt_classified_search_not_supported') {
+          await ctx.reply(
+            '❌ This Immowelt URL format is not supported.\n\n' +
+              'Please use a standard search URL:\n' +
+              '1. Go to immowelt.de\n' +
+              '2. Search for apartments (Wohnung mieten)\n' +
+              '3. Select a city\n' +
+              '4. Copy the URL (should contain /liste/)\n\n' +
+              'Example:\nimmowelt.de/liste/muenchen/wohnungen/mieten'
+          );
         } else {
           await ctx.reply('❌ Incorrect URL, cancelled.');
         }
@@ -377,6 +387,13 @@ export class TelegramBot {
         // Invalid: /Suche/de/bayern/wohnung-mieten (4 parts - no city, no geocodes)
         if (!hasGeocodes && pathParts.length < 5) {
           return { valid: false, error: 'immoscout_no_city' };
+        }
+      }
+
+      if (provider === 'immowelt') {
+        // /classified-search URLs are blocked by bot protection, only /liste/ works
+        if (parsed.pathname.includes('/classified-search')) {
+          return { valid: false, error: 'immowelt_classified_search_not_supported' };
         }
       }
 
