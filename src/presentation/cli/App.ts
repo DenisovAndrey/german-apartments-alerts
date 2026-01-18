@@ -2,7 +2,7 @@ import { IBrowserService } from '../../domain/ports/IBrowserService.js';
 import { ScrapingService, UserScrapeResult } from '../../application/services/ScrapingService.js';
 import { WatchListingsUseCase, UserWithProviders } from '../../application/usecases/WatchListingsUseCase.js';
 import { ListingFormatter } from './ListingFormatter.js';
-import { AppConfig, loadUsersConfig } from '../../config/index.js';
+import { AppConfig } from '../../config/index.js';
 import { User } from '../../domain/entities/User.js';
 import { Listing } from '../../domain/entities/Listing.js';
 import { BrowserService } from '../../infrastructure/browser/BrowserService.js';
@@ -83,15 +83,8 @@ export class App {
     const usersWithProviders = await this.loadUsersFromDatabase();
 
     if (usersWithProviders.length === 0) {
-      const envUsers = this.loadUsersFromEnv();
-      if (envUsers.length > 0) {
-        this.logger.info(`No users in database, using ${envUsers.length} user(s) from .env`);
-        this.printHeader(envUsers);
-        await this.watchUseCase.start(envUsers, (result) => this.handleUserResult(result));
-      } else {
-        this.logger.info('No users configured. Waiting for users to register via Telegram...');
-        await this.waitForUsers();
-      }
+      this.logger.info('No users configured. Waiting for users to register via Telegram...');
+      await this.waitForUsers();
     } else {
       this.printHeader(usersWithProviders);
       await this.watchUseCase.start(
@@ -147,14 +140,6 @@ export class App {
     }
 
     return usersWithProviders;
-  }
-
-  private loadUsersFromEnv(): UserWithProviders[] {
-    const users = loadUsersConfig();
-    return users.map((user) => ({
-      user,
-      providers: this.providerFactory.createProvidersForConfig(user.providers),
-    }));
   }
 
   private printHeader(usersWithProviders: UserWithProviders[]): void {

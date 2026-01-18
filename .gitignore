@@ -28,3 +28,6 @@ npm-debug.log*
 
 # Test coverage
 coverage/
+
+# VPS setup documentation (contains sensitive info)
+VPS_SETUP.md

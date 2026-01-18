@@ -111,6 +111,17 @@ export class TelegramBot {
       await this.handleHelp(ctx);
     });
 
+    // Listing message buttons - don't delete the listing
+    this.bot.action('listing_show_list', async (ctx) => {
+      await ctx.answerCbQuery();
+      await this.handleList(ctx);
+    });
+
+    this.bot.action('listing_show_help', async (ctx) => {
+      await ctx.answerCbQuery();
+      await this.handleHelp(ctx);
+    });
+
     for (const provider of SUPPORTED_PROVIDERS) {
       this.bot.action(`remove_${provider}`, async (ctx) => {
         await ctx.answerCbQuery();
@@ -546,23 +557,27 @@ export class TelegramBot {
   async notifyNewListings(telegramId: number, listings: Listing[]): Promise<void> {
     if (listings.length === 0) return;
 
-    for (const listing of listings) {
+    const keyboard = Markup.inlineKeyboard([
+      [
+        Markup.button.callback('Manage Notifications', 'listing_show_list'),
+        Markup.button.callback('Help', 'listing_show_help'),
+      ],
+    ]);
+
+    for (let i = 0; i < listings.length; i++) {
+      const listing = listings[i];
       const message = this.formatListingMessage(listing);
+      const isLast = i === listings.length - 1;
+
       try {
-        await this.bot.telegram.sendMessage(telegramId, message, { parse_mode: 'HTML' });
+        if (isLast) {
+          await this.bot.telegram.sendMessage(telegramId, message, { parse_mode: 'HTML', ...keyboard });
+        } else {
+          await this.bot.telegram.sendMessage(telegramId, message, { parse_mode: 'HTML' });
+        }
       } catch (error) {
         this.logger.error(`Failed to send notification to ${telegramId}: ${error}`);
       }
-    }
-
-    try {
-      const keyboard = Markup.inlineKeyboard([
-        [Markup.button.callback('Manage Notifications', 'show_list')],
-        [Markup.button.callback('Help', 'show_help')],
-      ]);
-      await this.bot.telegram.sendMessage(telegramId, 'What would you like to do?', keyboard);
-    } catch (error) {
-      this.logger.error(`Failed to send menu to ${telegramId}: ${error}`);
     }
   }
 

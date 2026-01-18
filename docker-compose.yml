@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:latest
+    image: postgres:17
     container_name: scraper-db
     environment:
       POSTGRES_USER: scraper
@@ -24,10 +24,13 @@ services:
         condition: service_healthy
     environment:
       - DATABASE_URL=postgresql://scraper:scraper123@postgres:5432/scraper
-      - INTERVAL_MS=60000
-      - MAX_RESULTS_PER_PROVIDER=10
+      - INTERVAL_MS=${INTERVAL_MS:-60000}
+      - MAX_RESULTS_PER_PROVIDER=${MAX_RESULTS_PER_PROVIDER:-10}
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
-      - USERS=${USERS}
+      - ADMIN_TELEGRAM_BOT_TOKEN=${ADMIN_TELEGRAM_BOT_TOKEN}
+      - ADMIN_USER_ID=${ADMIN_USER_ID}
+    volumes:
+      - ./data:/app/data
     restart: unless-stopped
 
 volumes:
