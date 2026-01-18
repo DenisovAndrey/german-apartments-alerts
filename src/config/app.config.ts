@@ -5,6 +5,8 @@ export interface AppConfig {
   maxResultsPerProvider: number;
   databaseUrl: string;
   telegramBotToken?: string;
+  adminBotToken?: string;
+  adminUserId?: string;
 }
 
 export const loadAppConfig = (): AppConfig => ({
@@ -12,4 +14,6 @@ export const loadAppConfig = (): AppConfig => ({
   maxResultsPerProvider: parseInt(process.env.MAX_RESULTS_PER_PROVIDER || '10', 10),
   databaseUrl: process.env.DATABASE_URL || 'postgresql://scraper:scraper123@localhost:5432/scraper',
   telegramBotToken: process.env.TELEGRAM_BOT_TOKEN,
+  adminBotToken: process.env.ADMIN_TELEGRAM_BOT_TOKEN,
+  adminUserId: process.env.ADMIN_USER_ID,
 });

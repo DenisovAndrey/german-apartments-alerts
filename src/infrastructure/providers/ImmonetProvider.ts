@@ -18,7 +18,7 @@ export class ImmonetProvider extends BrowserBasedProvider {
       link: 'button@data-base',
     },
     waitForSelector: 'div[data-testid="serp-gridcontainer-testid"]',
-    sortByDateParam: 'sortby=19',
+    sortByDateParam: 'order=DateDesc',
   };
 
   constructor(url: string | undefined, browserService: IBrowserService) {

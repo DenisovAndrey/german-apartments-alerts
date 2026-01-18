@@ -10,6 +10,8 @@ import { DatabaseCheckpointRepository } from '../../infrastructure/repositories/
 import { DatabaseConnection } from '../../infrastructure/database/Database.js';
 import { ProviderFactory } from '../../infrastructure/providers/index.js';
 import { TelegramBot } from '../../infrastructure/telegram/TelegramBot.js';
+import { AdminBot } from '../../infrastructure/telegram/AdminBot.js';
+import { MonitoringService } from '../../infrastructure/monitoring/MonitoringService.js';
 import { ProvidersConfig } from '../../config/providers.config.js';
 import { ILogger, LoggerFactory } from '../../infrastructure/logging/Logger.js';
 
@@ -22,10 +24,13 @@ export class App {
   private formatter!: ListingFormatter;
   private providerFactory!: ProviderFactory;
   private telegramBot?: TelegramBot;
+  private adminBot?: AdminBot;
   private readonly logger: ILogger;
+  private readonly monitoring: MonitoringService;
 
   constructor(private readonly appConfig: AppConfig) {
     this.logger = LoggerFactory.create('App');
+    this.monitoring = MonitoringService.getInstance();
   }
 
   async initialize(): Promise<void> {
@@ -45,6 +50,17 @@ export class App {
     } else {
       this.logger.warn('TELEGRAM_BOT_TOKEN not set, bot disabled');
     }
+
+    if (this.appConfig.adminBotToken) {
+      this.adminBot = new AdminBot(
+        this.appConfig.adminBotToken,
+        this.db,
+        this.appConfig.adminUserId
+      );
+      this.monitoring.setAdminBot(this.adminBot);
+    } else {
+      this.logger.info('ADMIN_TELEGRAM_BOT_TOKEN not set, admin bot disabled');
+    }
   }
 
   async run(): Promise<void> {
@@ -52,6 +68,10 @@ export class App {
 
     if (this.telegramBot) {
       await this.telegramBot.start();
+    }
+
+    if (this.adminBot) {
+      await this.adminBot.start();
     }
 
     this.setupShutdownHandlers();
@@ -185,6 +205,7 @@ export class App {
       console.log('\nShutting down...');
       this.watchUseCase.stop();
       this.telegramBot?.stop();
+      this.adminBot?.stop();
       await this.browserService.close();
       await this.db.close();
       process.exit(0);

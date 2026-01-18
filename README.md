@@ -54,6 +54,32 @@ You'll receive instant notifications when new listings match your criteria.
 - `/help` - Show help
 - `/clear` - Remove all searches
 
+## Admin Bot (Optional)
+
+A separate monitoring bot for administrators. Set these in `.env`:
+- `ADMIN_TELEGRAM_BOT_TOKEN` - Bot token from @BotFather
+- `ADMIN_USER_ID` - Your Telegram user ID (only this user can access commands)
+
+### Admin Commands
+
+- `/users` - List all users with provider counts
+- `/count` - Total user count
+- `/count_queries` - Queries grouped by provider
+- `/logs` - Show recent 20 log entries
+
+Commands only work for the configured admin user ID.
+
+### Admin Notifications
+
+Automatically notifies you when:
+- New user registers
+- User adds/updates/removes a search
+- Critical scraping errors occur (3+ consecutive failures)
+
+### Logs
+
+Important events are logged to `./data/app.log` in JSON format.
+
 ## License
 
 MIT

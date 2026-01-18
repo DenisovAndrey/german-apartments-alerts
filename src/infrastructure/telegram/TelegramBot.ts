@@ -1,6 +1,7 @@
 import { Telegraf, Context, Markup } from 'telegraf';
 import { DatabaseConnection, DbUser } from '../database/Database.js';
 import { ILogger, LoggerFactory } from '../logging/Logger.js';
+import { MonitoringService } from '../monitoring/MonitoringService.js';
 import { Listing } from '../../domain/entities/Listing.js';
 
 const SUPPORTED_PROVIDERS = ['immoscout', 'immowelt', 'immonet', 'kleinanzeigen'] as const;
@@ -28,6 +29,7 @@ interface UserState {
 export class TelegramBot {
   private readonly bot: Telegraf;
   private readonly logger: ILogger;
+  private readonly monitoring: MonitoringService;
   private readonly userStates: Map<number, UserState> = new Map();
 
   constructor(
@@ -35,6 +37,7 @@ export class TelegramBot {
     private readonly db: DatabaseConnection
   ) {
     this.logger = LoggerFactory.create('TelegramBot');
+    this.monitoring = MonitoringService.getInstance();
     this.bot = new Telegraf(token);
     this.setupCommands();
     this.setupCallbacks();
@@ -114,10 +117,15 @@ export class TelegramBot {
         const user = await this.ensureUserFromCallback(ctx);
         if (!user) return;
 
+        const providers = await this.db.getUserProviders(user.id);
+        const existingProvider = providers.find((p) => p.provider === provider);
+        const removedUrl = existingProvider?.url;
+
         const removed = await this.db.deleteUserProvider(user.id, provider);
         await this.db.clearProviderCheckpoint(user.id, CHECKPOINT_NAMES[provider]);
         await ctx.deleteMessage();
         if (removed) {
+          await this.monitoring.logSearchRemoved(user.id, user.first_name, PROVIDER_NAMES[provider], removedUrl);
           this.logger.info(`User ${user.first_name} removed ${provider} search`);
           await ctx.reply(`✅ Removed ${PROVIDER_NAMES[provider]} search.`);
         } else {
@@ -179,7 +187,13 @@ export class TelegramBot {
     const from = ctx.from;
     if (!from) return;
 
+    const existingUser = await this.db.findUserByTelegramId(from.id);
+    const isNewUser = !existingUser;
     const user = await this.db.createUser(from.id, from.username ?? null, from.first_name);
+
+    if (isNewUser) {
+      await this.monitoring.logUserRegistered(user.id, user.username, user.first_name);
+    }
 
     const keyboard = Markup.inlineKeyboard([
       [Markup.button.callback('Manage Notifications', 'show_list')],
@@ -301,12 +315,21 @@ export class TelegramBot {
       const user = await this.ensureUser(ctx);
       if (!user) return;
 
+      const existingProviders = await this.db.getUserProviders(user.id);
+      const isUpdate = existingProviders.some((p) => p.provider === provider);
+
       await this.db.setUserProvider(user.id, provider, url);
       await this.db.clearProviderCheckpoint(user.id, CHECKPOINT_NAMES[provider]);
       this.userStates.delete(from.id);
 
+      if (isUpdate) {
+        await this.monitoring.logSearchUpdated(user.id, user.first_name, PROVIDER_NAMES[provider], url);
+      } else {
+        await this.monitoring.logSearchAdded(user.id, user.first_name, PROVIDER_NAMES[provider], url);
+      }
+
       this.logger.info(`User ${user.first_name} set ${provider} search`);
-      await ctx.reply(`✅ ${provider} search saved!\n\nYou'll receive a confirmation when the first listing is found.`);
+      await ctx.reply(`✅ ${PROVIDER_NAMES[provider]} search saved!\n\nYou'll receive a confirmation when the first listing is found.`);
       await this.showMainMenu(ctx);
     } catch (error) {
       this.logger.error(`Error in handleTextMessage: ${error}`);
@@ -392,9 +415,14 @@ export class TelegramBot {
     const user = await this.ensureUser(ctx);
     if (!user) return;
 
+    const providers = await this.db.getUserProviders(user.id);
+    const existingProvider = providers.find((p) => p.provider === provider);
+    const removedUrl = existingProvider?.url;
+
     const removed = await this.db.deleteUserProvider(user.id, provider);
     await this.db.clearProviderCheckpoint(user.id, CHECKPOINT_NAMES[provider]);
     if (removed) {
+      await this.monitoring.logSearchRemoved(user.id, user.first_name, PROVIDER_NAMES[provider], removedUrl);
       this.logger.info(`User ${user.first_name} removed ${provider} search`);
       await ctx.reply(`✅ Removed ${PROVIDER_NAMES[provider]} search`);
     } else {
@@ -469,12 +497,8 @@ export class TelegramBot {
 
     await this.bot.telegram.setMyCommands([
       { command: 'start', description: 'Start the bot' },
-      { command: 'list', description: 'Show your searches' },
-      { command: 'immoscout', description: 'Add ImmobilienScout24 search' },
-      { command: 'immowelt', description: 'Add Immowelt search' },
-      { command: 'immonet', description: 'Add Immonet search' },
-      { command: 'kleinanzeigen', description: 'Add Kleinanzeigen search' },
-      { command: 'clear', description: 'Remove all searches' },
+      { command: 'list', description: 'Manage notifications' },
+      { command: 'clear', description: 'Remove all notifications' },
       { command: 'help', description: 'Show help' },
     ]);
 
@@ -504,6 +528,16 @@ export class TelegramBot {
       } catch (error) {
         this.logger.error(`Failed to send notification to ${telegramId}: ${error}`);
       }
+    }
+
+    try {
+      const keyboard = Markup.inlineKeyboard([
+        [Markup.button.callback('Manage Notifications', 'show_list')],
+        [Markup.button.callback('Help', 'show_help')],
+      ]);
+      await this.bot.telegram.sendMessage(telegramId, 'What would you like to do?', keyboard);
+    } catch (error) {
+      this.logger.error(`Failed to send menu to ${telegramId}: ${error}`);
     }
   }
 

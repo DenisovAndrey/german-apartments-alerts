@@ -1,6 +1,7 @@
 import { IListingProvider } from '../../domain/ports/IListingProvider.js';
 import { Listing, RawListing } from '../../domain/entities/Listing.js';
 import { ILogger, LoggerFactory } from '../logging/Logger.js';
+import { MonitoringService } from '../monitoring/MonitoringService.js';
 import { buildHash } from '../utils/hash.js';
 
 export interface ProviderError {
@@ -70,6 +71,14 @@ export abstract class BaseProvider implements IListingProvider {
         `⚠️ ALERT: ${this.name} has failed ${this.consecutiveErrors} times in a row. Possible blocking or site changes!`,
         { possibleCause }
       );
+      const enrichedError = new Error(
+        `${this.consecutiveErrors} consecutive failures: ${possibleCause}\nOriginal: ${error.message}`
+      );
+      enrichedError.stack = error.stack;
+      MonitoringService.getInstance().logScrapingError(
+        this.name,
+        enrichedError
+      ).catch(() => {});
     }
   }
 

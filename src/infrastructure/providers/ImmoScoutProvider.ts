@@ -7,15 +7,21 @@ export class ImmoScoutProvider extends BaseProvider {
   readonly name = 'ImmoScout';
   readonly id = 'immoscout';
 
+  private ensureSortByNewest(url: string): string {
+    if (url.includes('sorting=')) return url;
+    return url + (url.includes('?') ? '&' : '?') + 'sorting=2';
+  }
+
   async scrape(maxResults: number): Promise<Listing[]> {
     if (!this.isEnabled()) return [];
 
     const startTime = Date.now();
+    const sortedUrl = this.ensureSortByNewest(this.url!);
 
     try {
-      this.logger.info(`Starting API scrape`, { url: this.url?.substring(0, 60) + '...' });
+      this.logger.info(`Starting API scrape`, { url: sortedUrl.substring(0, 60) + '...' });
 
-      immoscout.init({ enabled: true, url: this.url }, []);
+      immoscout.init({ enabled: true, url: sortedUrl }, []);
       const listings = await immoscout.config.getListings(immoscout.config.url);
 
       if (!listings || listings.length === 0) {
