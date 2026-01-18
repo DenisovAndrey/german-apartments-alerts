@@ -375,7 +375,7 @@ export class TelegramBot {
           this.userStates.set(from.id, { awaitingCityFor: validation.parsedParams });
           await ctx.reply(
             '🏙 This URL format requires a city name to work.\n\n' +
-              'Please type the city name:\n\n' +
+              'Please type ONE city name (only one city per search is supported):\n\n' +
               'Examples: Berlin, München, Hamburg, Frankfurt'
           );
           return;
