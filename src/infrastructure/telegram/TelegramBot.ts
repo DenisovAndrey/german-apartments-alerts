@@ -310,7 +310,9 @@ export class TelegramBot {
       // Handle city input for Immowelt/Immonet URL conversion
       if (state?.awaitingCityFor) {
         this.logger.info(`Processing city input: ${text}`);
-        const city = text.toLowerCase().replace(/\s+/g, '-').replace(/ü/g, 'ue').replace(/ö/g, 'oe').replace(/ä/g, 'ae').replace(/ß/g, 'ss');
+        // Only use the first city if multiple are provided (Immowelt only supports one city per URL)
+        const rawCity = text.split(',')[0].trim();
+        const city = rawCity.toLowerCase().replace(/\s+/g, '-').replace(/ü/g, 'ue').replace(/ö/g, 'oe').replace(/ä/g, 'ae').replace(/ß/g, 'ss');
         const { provider, estateType, distributionType } = state.awaitingCityFor;
 
         // Build URL based on provider - Immonet uses different path format
@@ -373,7 +375,7 @@ export class TelegramBot {
           this.userStates.set(from.id, { awaitingCityFor: validation.parsedParams });
           await ctx.reply(
             '🏙 This URL format requires a city name to work.\n\n' +
-              'Please type the city name (or multiple cities separated by commas):\n\n' +
+              'Please type the city name:\n\n' +
               'Examples: Berlin, München, Hamburg, Frankfurt'
           );
           return;
