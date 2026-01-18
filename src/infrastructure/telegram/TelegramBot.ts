@@ -5,12 +5,20 @@ import { MonitoringService } from '../monitoring/MonitoringService.js';
 import { Listing } from '../../domain/entities/Listing.js';
 
 const SUPPORTED_PROVIDERS = ['immoscout', 'immowelt', 'kleinanzeigen'] as const;
+const DEPRECATED_PROVIDERS = ['immonet'] as const;
+const ALL_PROVIDERS = [...SUPPORTED_PROVIDERS, ...DEPRECATED_PROVIDERS] as const;
+type AllProvider = (typeof ALL_PROVIDERS)[number];
 type SupportedProvider = (typeof SUPPORTED_PROVIDERS)[number];
 
 const PROVIDER_NAMES: Record<SupportedProvider, string> = {
   immoscout: 'ImmobilienScout24',
   immowelt: 'Immowelt',
   kleinanzeigen: 'Kleinanzeigen',
+};
+
+const ALL_PROVIDER_NAMES: Record<AllProvider, string> = {
+  ...PROVIDER_NAMES,
+  immonet: 'Immonet (use Immowelt)',
 };
 
 // Must match provider.name in each provider class (used for checkpoint storage)
@@ -179,6 +187,22 @@ export class TelegramBot {
         }
       });
     }
+
+    // Deprecated provider callbacks
+    this.bot.action('add_immonet', async (ctx) => {
+      await ctx.answerCbQuery();
+      await ctx.deleteMessage();
+      const keyboard = Markup.inlineKeyboard([
+        [Markup.button.callback('Add Immowelt instead', 'add_immowelt')],
+        [Markup.button.callback('Close', 'close_message')],
+      ]);
+      await ctx.reply(
+        '⚠️ Immonet has merged with Immowelt.\n\n' +
+          'All listings are now the same on both platforms.\n\n' +
+          'Please use Immowelt instead.',
+        keyboard
+      );
+    });
   }
 
   private async ensureUserFromCallback(ctx: Context): Promise<DbUser | null> {
@@ -478,11 +502,15 @@ export class TelegramBot {
     }
 
     const unconfigured = SUPPORTED_PROVIDERS.filter((p) => !configuredSet.has(p));
-    if (unconfigured.length > 0) {
+    if (unconfigured.length > 0 || DEPRECATED_PROVIDERS.length > 0) {
       lines.push('Available to add:');
       for (const provider of unconfigured) {
         lines.push(`○ ${PROVIDER_NAMES[provider]}`);
         buttons.push([Markup.button.callback(`Add ${PROVIDER_NAMES[provider]}`, `add_${provider}`)]);
+      }
+      for (const provider of DEPRECATED_PROVIDERS) {
+        lines.push(`○ ${ALL_PROVIDER_NAMES[provider]}`);
+        buttons.push([Markup.button.callback(`Add ${ALL_PROVIDER_NAMES[provider]}`, `add_${provider}`)]);
       }
     }
 
@@ -543,6 +571,9 @@ export class TelegramBot {
       } else {
         buttons.push([Markup.button.callback(`Add ${PROVIDER_NAMES[provider]}`, `add_${provider}`)]);
       }
+    }
+    for (const provider of DEPRECATED_PROVIDERS) {
+      buttons.push([Markup.button.callback(`Add ${ALL_PROVIDER_NAMES[provider]}`, `add_${provider}`)]);
     }
     buttons.push([Markup.button.callback('Manage Notifications', 'show_list')]);
     buttons.push([Markup.button.callback('Close', 'close_message')]);
