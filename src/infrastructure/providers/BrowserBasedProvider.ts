@@ -36,8 +36,6 @@ export abstract class BrowserBasedProvider extends BaseProvider {
         fullUrl = url.toString();
       }
 
-      this.logger.info(`Starting scrape`, { url: fullUrl.substring(0, 60) + '...' });
-
       const rawListings = await this.browserService.scrape(
         fullUrl,
         this.options.crawlContainer,
@@ -48,8 +46,6 @@ export abstract class BrowserBasedProvider extends BaseProvider {
       const validListings = rawListings.filter((l) => this.isValidListing(l));
       const listings = validListings.slice(0, maxResults).map((l) => this.transformListing(l));
 
-      const duration = Date.now() - startTime;
-
       if (rawListings.length === 0) {
         throw new Error('No listings found - possible blocking or selector change');
       }
@@ -59,11 +55,6 @@ export abstract class BrowserBasedProvider extends BaseProvider {
           raw: rawListings.length,
           valid: validListings.length,
           filtered: rawListings.length - validListings.length,
-        });
-      } else {
-        this.logger.info(`Scrape completed successfully`, {
-          listings: listings.length,
-          duration: `${duration}ms`,
         });
       }
 

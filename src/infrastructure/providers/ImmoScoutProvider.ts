@@ -20,8 +20,6 @@ export class ImmoScoutProvider extends BaseProvider {
     const sortedUrl = this.ensureSortByNewest(this.url!);
 
     try {
-      this.logger.info(`Starting API scrape`, { url: sortedUrl.substring(0, 60) + '...' });
-
       immoscout.init({ enabled: true, url: sortedUrl }, []);
       const listings = await immoscout.config.getListings(immoscout.config.url);
 
@@ -32,12 +30,6 @@ export class ImmoScoutProvider extends BaseProvider {
       const result = listings.slice(0, maxResults).map((l: RawListing) => {
         const normalized = immoscout.config.normalize(l);
         return this.normalizeListing(normalized, this.name);
-      });
-
-      const duration = Date.now() - startTime;
-      this.logger.info(`API scrape completed successfully`, {
-        listings: result.length,
-        duration: `${duration}ms`,
       });
 
       this.resetErrors();

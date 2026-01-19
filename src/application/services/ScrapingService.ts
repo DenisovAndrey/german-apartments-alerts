@@ -38,11 +38,6 @@ export class ScrapingService {
     const providerStatuses: ProviderStatus[] = [];
     const allNewListings: Listing[] = [];
 
-    this.logger.info(`Starting scrape for user ${user.name}`, {
-      userId: user.id,
-      providers: enabledProviders.map((p) => p.name),
-    });
-
     await Promise.all(
       enabledProviders.map(async (provider) => {
         const listings = await provider.scrape(this.maxResultsPerProvider);
@@ -89,12 +84,6 @@ export class ScrapingService {
         })),
       });
     }
-
-    this.logger.info(`Scrape completed for user ${user.name}`, {
-      userId: user.id,
-      total: allListings.length,
-      new: allNewListings.length,
-    });
 
     return { user, allListings, newListings: allNewListings, byProvider, providerStatuses };
   }

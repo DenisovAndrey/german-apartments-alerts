@@ -154,23 +154,24 @@ export class App {
   }
 
   private handleUserResult(result: UserScrapeResult): void {
-    const timestamp = this.formatter.formatTimestamp();
-    console.log(`\n[${timestamp}] Results for ${result.user.name}:`);
-
+    // Send Telegram notifications for new listings (silently)
     if (result.newListings.length > 0) {
-      console.log(`Found ${result.newListings.length} NEW listing(s) for ${result.user.name}:`);
-      for (const listing of result.newListings) {
-        console.log(this.formatter.formatListing(listing, true));
-      }
-
       this.sendTelegramNotifications(result.user.id, result.newListings);
     }
 
+    // Only log summary line
     console.log(this.formatter.formatUserSummary(result));
 
+    // Log health warnings if any provider has issues
     const healthWarnings = this.formatter.formatProviderHealth(result.providerStatuses);
     if (healthWarnings) {
       console.log(healthWarnings);
+    }
+
+    // Warn if total listings is 0 (possible scraping issue)
+    const totalListings = result.allListings.length;
+    if (totalListings === 0 && result.providerStatuses.some(s => s.enabled)) {
+      this.logger.warn(`⚠️ No listings found for user ${result.user.name} - possible scraping issue`);
     }
   }
 
