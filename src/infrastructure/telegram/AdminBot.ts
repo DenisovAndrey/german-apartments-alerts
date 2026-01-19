@@ -47,13 +47,17 @@ export class AdminBot {
           return;
         }
 
-        const lines: string[] = [`Users (${users.length}):`];
+        const lines: string[] = [];
+        let activeCount = 0;
         for (const user of users) {
           const providers = await this.db.getUserProviders(user.id);
           const name = user.username ? `@${user.username}` : user.first_name;
-          lines.push(`• ${name} - ${providers.length} provider(s)`);
+          const isActive = providers.length > 0;
+          if (isActive) activeCount++;
+          lines.push(`• ${name} - ${providers.length} provider(s)${isActive ? '' : ' (inactive)'}`);
         }
-        await ctx.reply(lines.join('\n'));
+        const header = `Users: ${users.length} total, ${activeCount} active\n`;
+        await ctx.reply(header + lines.join('\n'));
       } catch (err) {
         this.logger.error('Error in /users command', err as Error);
       }
@@ -64,7 +68,12 @@ export class AdminBot {
 
       try {
         const users = await this.db.getAllUsers();
-        await ctx.reply(`Total users: ${users.length}`);
+        let activeCount = 0;
+        for (const user of users) {
+          const providers = await this.db.getUserProviders(user.id);
+          if (providers.length > 0) activeCount++;
+        }
+        await ctx.reply(`Total users: ${users.length}\nActive users: ${activeCount}`);
       } catch (err) {
         this.logger.error('Error in /count command', err as Error);
       }
