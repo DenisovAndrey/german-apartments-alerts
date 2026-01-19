@@ -173,6 +173,21 @@ export class AdminBot {
 
   async start(): Promise<void> {
     this.logger.info('Starting Admin bot...');
+
+    // Set command menu only for the admin user
+    if (this.adminUserId) {
+      await this.bot.telegram.setMyCommands(
+        [
+          { command: 'users', description: 'List all users with provider counts' },
+          { command: 'count', description: 'Show total and active user counts' },
+          { command: 'count_queries', description: 'Show queries by provider' },
+          { command: 'logs', description: 'Show recent activity logs' },
+          { command: 'backup', description: 'Send database backup file' },
+        ],
+        { scope: { type: 'chat', chat_id: this.adminUserId } }
+      );
+    }
+
     this.bot.catch((err) => {
       this.logger.error(`Admin bot error: ${err}`);
     });
