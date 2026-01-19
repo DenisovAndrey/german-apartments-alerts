@@ -666,6 +666,18 @@ export class TelegramBot {
           await this.bot.telegram.sendMessage(telegramId, message, { parse_mode: 'HTML' });
         }
       } catch (error) {
+        const errorMsg = String(error);
+        // Handle blocked users - deactivate them
+        if (errorMsg.includes('bot was blocked by the user') || errorMsg.includes('user is deactivated')) {
+          const user = await this.db.findUserByTelegramId(telegramId);
+          const userName = user?.first_name || `ID:${telegramId}`;
+          this.logger.warn(`User ${userName} blocked the bot - removing all their providers`);
+          if (user) {
+            await this.db.deleteAllUserProviders(user.id);
+            await this.monitoring.logSearchRemoved(user.id, userName, 'ALL (user blocked bot)', undefined);
+          }
+          return; // Stop trying to send more notifications
+        }
         this.logger.error(`Failed to send notification to ${telegramId}: ${error}`);
       }
     }
