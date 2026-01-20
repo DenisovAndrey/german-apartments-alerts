@@ -8,9 +8,25 @@ export class ImmoScoutProvider extends BaseProvider {
   readonly id = 'immoscout';
 
   private ensureSortByNewest(url: string): string {
-    if (url.includes('sorting=')) return url;
-    // Mobile API uses -firstactivation for newest first (not sorting=2 which is web-only)
-    return url + (url.includes('?') ? '&' : '?') + 'sorting=-firstactivation';
+    try {
+      const parsed = new URL(url);
+      // Remove web-only sorting parameter (sorting=1, sorting=2, etc.)
+      // and replace with mobile API format
+      const existingSorting = parsed.searchParams.get('sorting');
+      if (existingSorting && /^\d+$/.test(existingSorting)) {
+        // Web format (numeric) - replace with mobile API format
+        parsed.searchParams.set('sorting', '-firstactivation');
+      } else if (!existingSorting) {
+        // No sorting - add mobile API format
+        parsed.searchParams.set('sorting', '-firstactivation');
+      }
+      // If sorting is already in mobile format (e.g., -firstactivation), keep it
+      return parsed.toString();
+    } catch {
+      // Fallback for invalid URLs
+      if (url.includes('sorting=')) return url;
+      return url + (url.includes('?') ? '&' : '?') + 'sorting=-firstactivation';
+    }
   }
 
   async scrape(maxResults: number): Promise<Listing[]> {
