@@ -2,6 +2,7 @@ import { Telegraf, Context } from 'telegraf';
 import { DatabaseConnection } from '../database/Database.js';
 import { ILogger, LoggerFactory } from '../logging/Logger.js';
 import { FileLogger, LogEvent } from '../logging/FileLogger.js';
+import { MonitoringService } from '../monitoring/MonitoringService.js';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -131,6 +132,20 @@ export class AdminBot {
       if (!this.isAuthorized(ctx)) return;
       await this.sendBackup();
     });
+
+    this.bot.command('toggle_errors', async (ctx) => {
+      if (!this.isAuthorized(ctx)) return;
+
+      try {
+        const monitoring = MonitoringService.getInstance();
+        const currentState = monitoring.isErrorAlertsEnabled();
+        monitoring.setErrorAlertsEnabled(!currentState);
+        const newState = !currentState ? 'enabled' : 'disabled';
+        await ctx.reply(`🔔 Scraping error alerts ${newState}`);
+      } catch (err) {
+        this.logger.error('Error in /toggle_errors command', err as Error);
+      }
+    });
   }
 
   private formatLogEntry(log: LogEvent): string {
@@ -183,6 +198,7 @@ export class AdminBot {
           { command: 'count_queries', description: 'Show queries by provider' },
           { command: 'logs', description: 'Show recent activity logs' },
           { command: 'backup', description: 'Send database backup file' },
+          { command: 'toggle_errors', description: 'Toggle scraping error alerts' },
         ],
         { scope: { type: 'chat', chat_id: this.adminUserId } }
       );

@@ -5,6 +5,7 @@ export class MonitoringService {
   private static instance: MonitoringService | null = null;
   private readonly fileLogger: FileLogger;
   private adminBot: AdminBot | null = null;
+  private errorAlertsEnabled = true;
 
   private constructor() {
     this.fileLogger = FileLogger.getInstance();
@@ -19,6 +20,14 @@ export class MonitoringService {
 
   setAdminBot(bot: AdminBot): void {
     this.adminBot = bot;
+  }
+
+  setErrorAlertsEnabled(enabled: boolean): void {
+    this.errorAlertsEnabled = enabled;
+  }
+
+  isErrorAlertsEnabled(): boolean {
+    return this.errorAlertsEnabled;
   }
 
   async logUserRegistered(userId: string, username: string | null, firstName: string): Promise<void> {
@@ -45,16 +54,19 @@ export class MonitoringService {
     provider: string,
     error: Error | string,
     userId?: string,
-    url?: string
+    url?: string,
+    userName?: string
   ): Promise<void> {
     const errorMessage = error instanceof Error ? error.message : error;
     this.fileLogger.logScrapingError(provider, errorMessage, userId, url);
+
+    if (!this.errorAlertsEnabled) return;
 
     const details: ErrorDetails = {
       type: error instanceof Error ? error.constructor.name : 'ScrapingError',
       message: errorMessage,
       provider,
-      source: 'Scraper',
+      source: userName ? `Scraper [${userName}]` : 'Scraper',
       stack: error instanceof Error ? error.stack : undefined,
       url,
     };

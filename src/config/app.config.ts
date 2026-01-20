@@ -7,6 +7,7 @@ export interface AppConfig {
   telegramBotToken?: string;
   adminBotToken?: string;
   adminUserId?: string;
+  alertOnScrapingErrors: boolean;
 }
 
 export const loadAppConfig = (): AppConfig => ({
@@ -16,4 +17,5 @@ export const loadAppConfig = (): AppConfig => ({
   telegramBotToken: process.env.TELEGRAM_BOT_TOKEN,
   adminBotToken: process.env.ADMIN_TELEGRAM_BOT_TOKEN,
   adminUserId: process.env.ADMIN_USER_ID,
+  alertOnScrapingErrors: process.env.ALERT_ON_SCRAPING_ERRORS !== 'false',
 });

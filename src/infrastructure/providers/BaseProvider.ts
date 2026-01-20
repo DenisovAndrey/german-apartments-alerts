@@ -44,7 +44,7 @@ export abstract class BaseProvider implements IListingProvider {
     this.lastError = null;
   }
 
-  protected handleError(error: Error, context?: Record<string, unknown>): void {
+  protected handleError(error: Error, context?: Record<string, unknown>, userName?: string): void {
     this.consecutiveErrors++;
     const possibleCause = this.detectPossibleCause(error);
 
@@ -66,21 +66,22 @@ export abstract class BaseProvider implements IListingProvider {
       }
     );
 
+    // Notify admin on first error (not waiting for consecutive errors since providers are recreated each cycle)
+    const enrichedError = new Error(`${possibleCause}\n${error.message}`);
+    enrichedError.stack = error.stack;
+    MonitoringService.getInstance().logScrapingError(
+      this.name,
+      enrichedError,
+      undefined,
+      this.url,
+      userName
+    ).catch(() => {});
+
     if (this.consecutiveErrors >= 3) {
       this.logger.warn(
         `⚠️ ALERT: ${this.name} has failed ${this.consecutiveErrors} times in a row. Possible blocking or site changes!`,
         { possibleCause }
       );
-      const enrichedError = new Error(
-        `${this.consecutiveErrors} consecutive failures: ${possibleCause}\nOriginal: ${error.message}`
-      );
-      enrichedError.stack = error.stack;
-      MonitoringService.getInstance().logScrapingError(
-        this.name,
-        enrichedError,
-        undefined,
-        this.url
-      ).catch(() => {});
     }
   }
 

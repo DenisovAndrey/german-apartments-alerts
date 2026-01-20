@@ -31,6 +31,7 @@ export class App {
   constructor(private readonly appConfig: AppConfig) {
     this.logger = LoggerFactory.create('App');
     this.monitoring = MonitoringService.getInstance();
+    this.monitoring.setErrorAlertsEnabled(appConfig.alertOnScrapingErrors);
   }
 
   async initialize(): Promise<void> {
