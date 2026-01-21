@@ -220,10 +220,11 @@ export class TelegramBot {
 
     await ctx.reply(
       `Welcome ${user.first_name}!\n\n` +
+        `🏠 Property Purchase Alerts\n\n` +
         `Standard platform notifications are sent via email with 30+ minute delays. ` +
-        `By that time, landlords have already received hundreds of messages.\n\n` +
-        `This bot monitors listings and notifies you INSTANTLY when something new appears. ` +
-        `Be among the first to respond and dramatically increase your chances.\n\n` +
+        `By that time, sellers have already received hundreds of inquiries.\n\n` +
+        `This bot monitors property listings and notifies you INSTANTLY when something new appears. ` +
+        `Be among the first to respond and dramatically increase your chances of buying.\n\n` +
         `All major platforms in one place:\n` +
         `- ImmobilienScout24\n` +
         `- Immowelt\n` +
@@ -248,34 +249,37 @@ export class TelegramBot {
       immoscout:
         `ImmobilienScout24 setup:\n\n` +
         `1. Go to immobilienscout24.de\n` +
-        `2. Search for apartments in your city\n` +
+        `2. Search for properties to BUY in your city\n` +
         `3. Apply filters (price, rooms, size)\n` +
         `4. Copy URL from browser\n\n` +
-        `Example URL:\n` +
-        `immobilienscout24.de/Suche/de/berlin/berlin/wohnung-mieten?price=-1500.0&roomsMin=2`,
+        `Example URLs:\n` +
+        `immobilienscout24.de/Suche/de/berlin/berlin/wohnung-kaufen?price=-500000\n` +
+        `immobilienscout24.de/Suche/de/bayern/muenchen/haus-kaufen?price=-800000`,
       immowelt:
         `Immowelt setup:\n\n` +
         `1. Go to immowelt.de\n` +
-        `2. Search for apartments in your city\n` +
+        `2. Search for properties to BUY in your city\n` +
         `3. Apply filters (price, rooms, size)\n` +
         `4. Copy URL from browser\n\n` +
-        `Example URL:\n` +
-        `immowelt.de/liste/berlin/wohnungen/mieten?pma=1500&rmi=2`,
+        `Example URLs:\n` +
+        `immowelt.de/liste/berlin/wohnungen/kaufen\n` +
+        `immowelt.de/liste/muenchen/haeuser/kaufen`,
       immonet:
         `Immonet setup:\n\n` +
         `1. Go to immonet.de\n` +
-        `2. Search for apartments in your city\n` +
+        `2. Search for properties to BUY in your city\n` +
         `3. Apply filters (price, rooms, size)\n` +
         `4. Copy URL from browser\n\n` +
         `Note: Immonet uses the same listings as Immowelt.`,
       kleinanzeigen:
         `Kleinanzeigen setup:\n\n` +
         `1. Go to kleinanzeigen.de\n` +
-        `2. Search in "Immobilien" category\n` +
+        `2. Search in "Immobilien" → "Kaufen" category\n` +
         `3. Select your city and apply filters\n` +
         `4. Copy URL from browser\n\n` +
-        `Example URL:\n` +
-        `kleinanzeigen.de/s-wohnung-mieten/berlin/anzeige:angebote/c203l3331`,
+        `Example URLs:\n` +
+        `kleinanzeigen.de/s-wohnung-kaufen/berlin/c196l3331\n` +
+        `kleinanzeigen.de/s-haus-kaufen/muenchen/c208l6411`,
     };
 
     const keyboard = Markup.inlineKeyboard([
@@ -383,7 +387,7 @@ export class TelegramBot {
 
         this.userStates.delete(from.id);
         if (validation.error === 'immoscout_no_city') {
-          await ctx.reply('❌ ImmoScout requires a city or geocodes in the URL.\n\nExamples:\n.../bayern/muenchen/wohnung-mieten\n...?geocodes=1276002059,1276003001');
+          await ctx.reply('❌ ImmoScout requires a city or geocodes in the URL.\n\nExamples:\n.../bayern/muenchen/wohnung-kaufen\n.../berlin/berlin/haus-kaufen\n...?geocodes=1276002059,1276003001');
         } else if (validation.error === 'immoscout_shape_not_supported') {
           await ctx.reply('❌ ImmoScout shape/polygon search is not supported.\n\nPlease use a city-based search URL.');
         } else {
@@ -459,8 +463,8 @@ export class TelegramBot {
           const distType = parsed.searchParams.get('distributionTypes');
           const estType = parsed.searchParams.get('estateTypes');
 
-          const distributionType = distType === 'Buy' ? 'kaufen' : 'mieten';
-          const estateType = estType?.includes('House') ? 'haeuser' : 'wohnungen';
+          const distributionType = distType === 'Rent' ? 'mieten' : 'kaufen';
+          const estateType = estType?.includes('Apartment') ? 'wohnungen' : 'haeuser';
 
           return {
             valid: false,

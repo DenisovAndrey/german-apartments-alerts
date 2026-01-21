@@ -11,11 +11,11 @@ export interface ProvidersConfig {
 
 export const defaultProvidersConfig: ProvidersConfig = {
   immoscout:
-    'https://www.immobilienscout24.de/Suche/de/bayern/muenchen/wohnung-mieten?price=-2000.0&exclusioncriteria=swapflat,projectlisting&pricetype=rentpermonth&enteredFrom=result_list',
+    'https://www.immobilienscout24.de/Suche/de/bayern/muenchen/wohnung-kaufen?price=-500000.0&exclusioncriteria=swapflat,projectlisting&enteredFrom=result_list',
   immowelt:
-    'https://www.immowelt.de/classified-search?distributionTypes=Rent&estateTypes=Apartment&locations=AD08DE6345&projectTypes=Stock&order=DateDesc',
+    'https://www.immowelt.de/liste/muenchen/wohnungen/kaufen?pma=500000',
   immonet:
-    'https://www.immonet.de/classified-search?distributionTypes=Rent&estateTypes=Apartment&locations=AD08DE6345&priceMax=2000&priceMin=1000&projectTypes=Stock',
+    'https://www.immonet.de/immobiliensuche/kaufen/wohnung/muenchen',
   kleinanzeigen:
-    'https://www.kleinanzeigen.de/s-wohnung-mieten/muenchen/anbieter:privat/preis:1000:2000/c203l6411',
+    'https://www.kleinanzeigen.de/s-wohnung-kaufen/muenchen/c196l6411',
 };

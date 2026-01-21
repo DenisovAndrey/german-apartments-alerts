@@ -10,21 +10,16 @@ export class ImmoScoutProvider extends BaseProvider {
   private ensureSortByNewest(url: string): string {
     try {
       const parsed = new URL(url);
-      // Remove web-only sorting parameter (sorting=1, sorting=2, etc.)
-      // and replace with mobile API format
-      const existingSorting = parsed.searchParams.get('sorting');
-      if (existingSorting && /^\d+$/.test(existingSorting)) {
-        // Web format (numeric) - replace with mobile API format
-        parsed.searchParams.set('sorting', '-firstactivation');
-      } else if (!existingSorting) {
-        // No sorting - add mobile API format
-        parsed.searchParams.set('sorting', '-firstactivation');
-      }
-      // If sorting is already in mobile format (e.g., -firstactivation), keep it
+      // Always force sorting by newest (mobile API format)
+      // This ensures we always get the latest listings first
+      parsed.searchParams.set('sorting', '-firstactivation');
       return parsed.toString();
     } catch {
-      // Fallback for invalid URLs
-      if (url.includes('sorting=')) return url;
+      // Fallback for invalid URLs - replace or add sorting parameter
+      const sortingRegex = /([?&])sorting=[^&]*/;
+      if (sortingRegex.test(url)) {
+        return url.replace(sortingRegex, '$1sorting=-firstactivation');
+      }
       return url + (url.includes('?') ? '&' : '?') + 'sorting=-firstactivation';
     }
   }

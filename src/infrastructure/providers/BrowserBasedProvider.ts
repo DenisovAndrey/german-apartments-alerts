@@ -27,6 +27,8 @@ export abstract class BrowserBasedProvider extends BaseProvider {
 
     try {
       let fullUrl = this.url!;
+
+      // Add sort by date param if not already present
       if (this.options.sortByDateParam && !fullUrl.includes(this.options.sortByDateParam)) {
         fullUrl += (fullUrl.includes('?') ? '&' : '?') + this.options.sortByDateParam;
       }
