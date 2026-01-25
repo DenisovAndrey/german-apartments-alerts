@@ -5,6 +5,7 @@ import { ImmoScoutProvider } from './ImmoScoutProvider.js';
 import { ImmoweltProvider } from './ImmoweltProvider.js';
 import { ImmonetProvider } from './ImmonetProvider.js';
 import { KleinanzeigenProvider } from './KleinanzeigenProvider.js';
+import { SueddeutscheProvider } from './SueddeutscheProvider.js';
 
 export class ProviderFactory {
   constructor(private readonly browserService: IBrowserService) {}
@@ -23,6 +24,9 @@ export class ProviderFactory {
     }
     if (config.kleinanzeigen) {
       providers.push(new KleinanzeigenProvider(config.kleinanzeigen, this.browserService));
+    }
+    if (config.sueddeutsche) {
+      providers.push(new SueddeutscheProvider(config.sueddeutsche));
     }
 
     return providers;
