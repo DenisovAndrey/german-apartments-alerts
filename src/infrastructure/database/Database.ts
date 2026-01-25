@@ -18,6 +18,15 @@ export interface DbUserProvider {
   created_at: Date;
 }
 
+export interface DbLocationCache {
+  location_id: string;
+  provider: string;
+  latitude: number;
+  longitude: number;
+  geometry: object;
+  created_at: Date;
+}
+
 export class DatabaseConnection {
   private readonly pool: pg.Pool;
   private readonly logger: ILogger;
@@ -58,6 +67,19 @@ export class DatabaseConnection {
         hashes JSONB NOT NULL,
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         PRIMARY KEY (user_id, provider)
+      )
+    `);
+
+    // Location cache table (for PlanetHome polygon data)
+    await this.pool.query(`
+      CREATE TABLE IF NOT EXISTS location_cache (
+        location_id TEXT NOT NULL,
+        provider TEXT NOT NULL,
+        latitude DOUBLE PRECISION NOT NULL,
+        longitude DOUBLE PRECISION NOT NULL,
+        geometry JSONB NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        PRIMARY KEY (location_id, provider)
       )
     `);
 
@@ -161,6 +183,49 @@ export class DatabaseConnection {
     await this.pool.query(
       'DELETE FROM checkpoints WHERE user_id = $1 AND provider = $2',
       [userId, provider]
+    );
+  }
+
+  // Location cache methods
+  async getCachedLocation(
+    locationId: string,
+    provider: string
+  ): Promise<{ latitude: number; longitude: number; geometry: object } | null> {
+    const result = await this.pool.query(
+      'SELECT latitude, longitude, geometry FROM location_cache WHERE location_id = $1 AND provider = $2',
+      [locationId, provider]
+    );
+    if (result.rows.length === 0) return null;
+    return {
+      latitude: result.rows[0].latitude,
+      longitude: result.rows[0].longitude,
+      geometry: result.rows[0].geometry,
+    };
+  }
+
+  async setCachedLocation(
+    locationId: string,
+    provider: string,
+    latitude: number,
+    longitude: number,
+    geometry: object
+  ): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO location_cache (location_id, provider, latitude, longitude, geometry)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (location_id, provider) DO UPDATE SET
+         latitude = EXCLUDED.latitude,
+         longitude = EXCLUDED.longitude,
+         geometry = EXCLUDED.geometry,
+         created_at = NOW()`,
+      [locationId, provider, latitude, longitude, JSON.stringify(geometry)]
+    );
+  }
+
+  async invalidateCachedLocation(locationId: string, provider: string): Promise<void> {
+    await this.pool.query(
+      'DELETE FROM location_cache WHERE location_id = $1 AND provider = $2',
+      [locationId, provider]
     );
   }
 

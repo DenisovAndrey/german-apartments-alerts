@@ -4,7 +4,7 @@ import { ILogger, LoggerFactory } from '../logging/Logger.js';
 import { MonitoringService } from '../monitoring/MonitoringService.js';
 import { Listing } from '../../domain/entities/Listing.js';
 
-const SUPPORTED_PROVIDERS = ['immoscout', 'immowelt', 'immonet', 'kleinanzeigen', 'sueddeutsche'] as const;
+const SUPPORTED_PROVIDERS = ['immoscout', 'immowelt', 'immonet', 'kleinanzeigen', 'sueddeutsche', 'planethome'] as const;
 type SupportedProvider = (typeof SUPPORTED_PROVIDERS)[number];
 
 const PROVIDER_NAMES: Record<SupportedProvider, string> = {
@@ -13,6 +13,7 @@ const PROVIDER_NAMES: Record<SupportedProvider, string> = {
   immonet: 'Immonet',
   kleinanzeigen: 'Kleinanzeigen',
   sueddeutsche: 'SZ Immobilienmarkt',
+  planethome: 'PlanetHome',
 };
 
 // Must match provider.name in each provider class (used for checkpoint storage)
@@ -22,6 +23,7 @@ const CHECKPOINT_NAMES: Record<SupportedProvider, string> = {
   immonet: 'Immonet',
   kleinanzeigen: 'Kleinanzeigen',
   sueddeutsche: 'Süddeutsche',
+  planethome: 'PlanetHome',
 };
 
 interface UserState {
@@ -61,12 +63,14 @@ export class TelegramBot {
     this.bot.command('immonet', (ctx) => this.handleProviderCommand(ctx, 'immonet'));
     this.bot.command('kleinanzeigen', (ctx) => this.handleProviderCommand(ctx, 'kleinanzeigen'));
     this.bot.command('sueddeutsche', (ctx) => this.handleProviderCommand(ctx, 'sueddeutsche'));
+    this.bot.command('planethome', (ctx) => this.handleProviderCommand(ctx, 'planethome'));
 
     this.bot.command('remove_immoscout', (ctx) => this.handleRemoveProvider(ctx, 'immoscout'));
     this.bot.command('remove_immowelt', (ctx) => this.handleRemoveProvider(ctx, 'immowelt'));
     this.bot.command('remove_immonet', (ctx) => this.handleRemoveProvider(ctx, 'immonet'));
     this.bot.command('remove_kleinanzeigen', (ctx) => this.handleRemoveProvider(ctx, 'kleinanzeigen'));
     this.bot.command('remove_sueddeutsche', (ctx) => this.handleRemoveProvider(ctx, 'sueddeutsche'));
+    this.bot.command('remove_planethome', (ctx) => this.handleRemoveProvider(ctx, 'planethome'));
 
     this.bot.on('text', (ctx) => this.handleTextMessage(ctx));
     this.bot.on('message', (ctx) => this.handleAnyMessage(ctx));
@@ -294,6 +298,14 @@ export class TelegramBot {
         `Example URLs:\n` +
         `immobilienmarkt.sueddeutsche.de/suche?l=München&t=apartment:sale:living\n` +
         `immobilienmarkt.sueddeutsche.de/suche/kaufen-wohnung-in-muenchen`,
+      planethome:
+        `PlanetHome setup:\n\n` +
+        `1. Go to planethome.de/immobiliensuche\n` +
+        `2. Search for properties to BUY\n` +
+        `3. Select location and property type\n` +
+        `4. Copy URL from browser\n\n` +
+        `Example URL:\n` +
+        `planethome.de/immobiliensuche?location=München&locationId=R62428&propertyType=FLAT`,
     };
 
     const keyboard = Markup.inlineKeyboard([
@@ -404,6 +416,8 @@ export class TelegramBot {
           await ctx.reply('❌ ImmoScout requires a city or geocodes in the URL.\n\nExamples:\n.../bayern/muenchen/wohnung-kaufen\n.../berlin/berlin/haus-kaufen\n...?geocodes=1276002059,1276003001');
         } else if (validation.error === 'immoscout_shape_not_supported') {
           await ctx.reply('❌ ImmoScout shape/polygon search is not supported.\n\nPlease use a city-based search URL.');
+        } else if (validation.error === 'planethome_no_location_id') {
+          await ctx.reply('❌ PlanetHome URL must contain a locationId parameter.\n\nGo to planethome.de/immobiliensuche, search for your location, and copy the full URL.');
         } else {
           await ctx.reply('❌ Incorrect URL, cancelled.');
         }
@@ -452,6 +466,7 @@ export class TelegramBot {
         immonet: ['immonet.de', 'www.immonet.de'],
         kleinanzeigen: ['kleinanzeigen.de', 'www.kleinanzeigen.de'],
         sueddeutsche: ['immobilienmarkt.sueddeutsche.de'],
+        planethome: ['planethome.de', 'www.planethome.de'],
       };
 
       if (!expectedDomains[provider].includes(parsed.hostname)) {
@@ -486,6 +501,12 @@ export class TelegramBot {
             error: 'needs_city',
             parsedParams: { provider, estateType, distributionType },
           };
+        }
+      }
+
+      if (provider === 'planethome') {
+        if (!parsed.searchParams.has('locationId')) {
+          return { valid: false, error: 'planethome_no_location_id' };
         }
       }
 

@@ -41,7 +41,7 @@ export class App {
 
     this.repository = new DatabaseCheckpointRepository(this.db);
     this.formatter = new ListingFormatter();
-    this.providerFactory = new ProviderFactory(this.browserService);
+    this.providerFactory = new ProviderFactory(this.browserService, this.db);
 
     this.scrapingService = new ScrapingService(this.repository, this.appConfig.maxResultsPerProvider);
     this.watchUseCase = new WatchListingsUseCase(this.scrapingService, this.appConfig.intervalMs);
