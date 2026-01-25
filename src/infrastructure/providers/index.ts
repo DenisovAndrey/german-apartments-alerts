@@ -7,4 +7,5 @@ export { KleinanzeigenProvider } from './KleinanzeigenProvider.js';
 export { SueddeutscheProvider } from './SueddeutscheProvider.js';
 export { PlanetHomeProvider } from './PlanetHomeProvider.js';
 export { DeutscheBankProvider } from './DeutscheBankProvider.js';
+export { SparkasseProvider } from './SparkasseProvider.js';
 export { ProviderFactory } from './ProviderFactory.js';

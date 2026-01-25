@@ -4,7 +4,7 @@ import { ILogger, LoggerFactory } from '../logging/Logger.js';
 import { MonitoringService } from '../monitoring/MonitoringService.js';
 import { Listing } from '../../domain/entities/Listing.js';
 
-const SUPPORTED_PROVIDERS = ['immoscout', 'immowelt', 'immonet', 'kleinanzeigen', 'sueddeutsche', 'planethome', 'deutschebank'] as const;
+const SUPPORTED_PROVIDERS = ['immoscout', 'immowelt', 'immonet', 'kleinanzeigen', 'sueddeutsche', 'planethome', 'deutschebank', 'sparkasse'] as const;
 type SupportedProvider = (typeof SUPPORTED_PROVIDERS)[number];
 
 const PROVIDER_NAMES: Record<SupportedProvider, string> = {
@@ -15,6 +15,7 @@ const PROVIDER_NAMES: Record<SupportedProvider, string> = {
   sueddeutsche: 'SZ Immobilienmarkt',
   planethome: 'PlanetHome',
   deutschebank: 'Deutsche Bank Immobilien',
+  sparkasse: 'Sparkasse Immobilien',
 };
 
 // Must match provider.name in each provider class (used for checkpoint storage)
@@ -26,6 +27,7 @@ const CHECKPOINT_NAMES: Record<SupportedProvider, string> = {
   sueddeutsche: 'Süddeutsche',
   planethome: 'PlanetHome',
   deutschebank: 'Deutsche Bank',
+  sparkasse: 'Sparkasse',
 };
 
 interface UserState {
@@ -67,6 +69,7 @@ export class TelegramBot {
     this.bot.command('sueddeutsche', (ctx) => this.handleProviderCommand(ctx, 'sueddeutsche'));
     this.bot.command('planethome', (ctx) => this.handleProviderCommand(ctx, 'planethome'));
     this.bot.command('deutschebank', (ctx) => this.handleProviderCommand(ctx, 'deutschebank'));
+    this.bot.command('sparkasse', (ctx) => this.handleProviderCommand(ctx, 'sparkasse'));
 
     this.bot.command('remove_immoscout', (ctx) => this.handleRemoveProvider(ctx, 'immoscout'));
     this.bot.command('remove_immowelt', (ctx) => this.handleRemoveProvider(ctx, 'immowelt'));
@@ -75,6 +78,7 @@ export class TelegramBot {
     this.bot.command('remove_sueddeutsche', (ctx) => this.handleRemoveProvider(ctx, 'sueddeutsche'));
     this.bot.command('remove_planethome', (ctx) => this.handleRemoveProvider(ctx, 'planethome'));
     this.bot.command('remove_deutschebank', (ctx) => this.handleRemoveProvider(ctx, 'deutschebank'));
+    this.bot.command('remove_sparkasse', (ctx) => this.handleRemoveProvider(ctx, 'sparkasse'));
 
     this.bot.on('text', (ctx) => this.handleTextMessage(ctx));
     this.bot.on('message', (ctx) => this.handleAnyMessage(ctx));
@@ -318,6 +322,15 @@ export class TelegramBot {
         `4. Copy URL from browser\n\n` +
         `Example URL:\n` +
         `deutsche-bank-immobilien.de/immobilie-suchen/liste/1?offerType=2&town=München`,
+      sparkasse:
+        `Sparkasse Immobilien setup:\n\n` +
+        `1. Go to immobilien.sparkasse.de\n` +
+        `2. Select "Kaufen" and property type\n` +
+        `3. Search for location(s) and apply filters\n` +
+        `4. Copy URL from browser\n\n` +
+        `Supports multiple locations (separated by semicolon)\n\n` +
+        `Example URL:\n` +
+        `immobilien.sparkasse.de/immobilien/treffer?marketingType=buy&objectType=flat&zipCityEstateId=0__München`,
     };
 
     const keyboard = Markup.inlineKeyboard([
@@ -480,6 +493,7 @@ export class TelegramBot {
         sueddeutsche: ['immobilienmarkt.sueddeutsche.de'],
         planethome: ['planethome.de', 'www.planethome.de'],
         deutschebank: ['deutsche-bank-immobilien.de', 'www.deutsche-bank-immobilien.de'],
+        sparkasse: ['immobilien.sparkasse.de'],
       };
 
       if (!expectedDomains[provider].includes(parsed.hostname)) {

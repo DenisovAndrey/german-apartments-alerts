@@ -9,6 +9,7 @@ import { KleinanzeigenProvider } from './KleinanzeigenProvider.js';
 import { SueddeutscheProvider } from './SueddeutscheProvider.js';
 import { PlanetHomeProvider } from './PlanetHomeProvider.js';
 import { DeutscheBankProvider } from './DeutscheBankProvider.js';
+import { SparkasseProvider } from './SparkasseProvider.js';
 
 export class ProviderFactory {
   constructor(
@@ -39,6 +40,9 @@ export class ProviderFactory {
     }
     if (config.deutschebank) {
       providers.push(new DeutscheBankProvider(config.deutschebank, this.browserService));
+    }
+    if (config.sparkasse) {
+      providers.push(new SparkasseProvider(config.sparkasse));
     }
 
     return providers;
