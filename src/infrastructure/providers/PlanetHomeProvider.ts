@@ -112,20 +112,24 @@ export class PlanetHomeProvider extends BaseProvider {
     super(url);
   }
 
-  private parseUrlParams(): { locationIds: string[]; locationNames: string[]; propertyType: string; radius: number } | null {
+  private parseUrlParams(): { locationIds: string[]; locationNames: string[]; propertyType: string; radius: number; priceFrom?: number; priceTo?: number } | null {
     try {
       const parsed = new URL(this.url!);
       const locationIds = parsed.searchParams.getAll('locationId');
       const locationNames = parsed.searchParams.getAll('location');
       const propertyType = parsed.searchParams.get('propertyType') || 'FLAT';
       const radius = parseInt(parsed.searchParams.get('radius') || '0', 10);
+      const priceFromStr = parsed.searchParams.get('priceFrom');
+      const priceToStr = parsed.searchParams.get('priceTo');
+      const priceFrom = priceFromStr ? parseInt(priceFromStr, 10) : undefined;
+      const priceTo = priceToStr ? parseInt(priceToStr, 10) : undefined;
 
       if (locationIds.length === 0) {
         this.logger.error('Missing locationId in URL', undefined, { url: this.url });
         return null;
       }
 
-      return { locationIds, locationNames, propertyType, radius };
+      return { locationIds, locationNames, propertyType, radius, priceFrom, priceTo };
     } catch (error) {
       this.logger.error('Failed to parse URL', error instanceof Error ? error : new Error(String(error)));
       return null;
@@ -304,7 +308,7 @@ export class PlanetHomeProvider extends BaseProvider {
   }
 
   private async fetchProperties(
-    params: { propertyType: string; radius: number },
+    params: { propertyType: string; radius: number; priceFrom?: number; priceTo?: number },
     locationsData: LocationData[],
     maxResults: number
   ): Promise<{ listings: Listing[]; error?: Error }> {
@@ -316,6 +320,19 @@ export class PlanetHomeProvider extends BaseProvider {
         geometry: loc.geometry,
       }));
 
+      const propertySearchInput: Record<string, unknown> = {
+        portal: 'ph-de',
+        propertyType: params.propertyType,
+        locations,
+      };
+
+      if (params.priceFrom !== undefined) {
+        propertySearchInput.priceFrom = params.priceFrom;
+      }
+      if (params.priceTo !== undefined) {
+        propertySearchInput.priceTo = params.priceTo;
+      }
+
       const response = await fetch(PlanetHomeProvider.PROPERTY_SEARCH_URL, {
         method: 'POST',
         headers: {
@@ -326,11 +343,7 @@ export class PlanetHomeProvider extends BaseProvider {
           operationName: 'searchPublicPropertySales',
           query: PROPERTY_SEARCH_QUERY,
           variables: {
-            propertySearchInput: {
-              portal: 'ph-de',
-              propertyType: params.propertyType,
-              locations,
-            },
+            propertySearchInput,
             paging: {
               offset: 0,
               limit: Math.min(maxResults, 50),
