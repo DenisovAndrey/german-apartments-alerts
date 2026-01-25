@@ -81,6 +81,26 @@ export class BrowserService implements IBrowserService {
     }
   }
 
+  async evaluate<T>(url: string, script: string, waitForSelector?: string): Promise<T> {
+    await this.initialize();
+
+    const page = await this.browser!.newPage();
+    await page.setUserAgent(this.userAgent);
+
+    try {
+      await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
+
+      if (waitForSelector) {
+        await page.waitForSelector(waitForSelector, { timeout: 10000 }).catch(() => {});
+      }
+
+      const result = await page.evaluate(script);
+      return result as T;
+    } finally {
+      await page.close();
+    }
+  }
+
   async close(): Promise<void> {
     if (this.browser) {
       await this.browser.close();

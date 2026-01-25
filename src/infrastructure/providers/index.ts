@@ -6,4 +6,5 @@ export { ImmonetProvider } from './ImmonetProvider.js';
 export { KleinanzeigenProvider } from './KleinanzeigenProvider.js';
 export { SueddeutscheProvider } from './SueddeutscheProvider.js';
 export { PlanetHomeProvider } from './PlanetHomeProvider.js';
+export { DeutscheBankProvider } from './DeutscheBankProvider.js';
 export { ProviderFactory } from './ProviderFactory.js';

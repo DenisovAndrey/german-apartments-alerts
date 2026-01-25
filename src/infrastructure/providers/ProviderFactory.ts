@@ -8,6 +8,7 @@ import { ImmonetProvider } from './ImmonetProvider.js';
 import { KleinanzeigenProvider } from './KleinanzeigenProvider.js';
 import { SueddeutscheProvider } from './SueddeutscheProvider.js';
 import { PlanetHomeProvider } from './PlanetHomeProvider.js';
+import { DeutscheBankProvider } from './DeutscheBankProvider.js';
 
 export class ProviderFactory {
   constructor(
@@ -35,6 +36,9 @@ export class ProviderFactory {
     }
     if (config.planethome) {
       providers.push(new PlanetHomeProvider(config.planethome, this.database));
+    }
+    if (config.deutschebank) {
+      providers.push(new DeutscheBankProvider(config.deutschebank, this.browserService));
     }
 
     return providers;

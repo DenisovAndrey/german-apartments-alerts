@@ -4,7 +4,7 @@ import { ILogger, LoggerFactory } from '../logging/Logger.js';
 import { MonitoringService } from '../monitoring/MonitoringService.js';
 import { Listing } from '../../domain/entities/Listing.js';
 
-const SUPPORTED_PROVIDERS = ['immoscout', 'immowelt', 'immonet', 'kleinanzeigen', 'sueddeutsche', 'planethome'] as const;
+const SUPPORTED_PROVIDERS = ['immoscout', 'immowelt', 'immonet', 'kleinanzeigen', 'sueddeutsche', 'planethome', 'deutschebank'] as const;
 type SupportedProvider = (typeof SUPPORTED_PROVIDERS)[number];
 
 const PROVIDER_NAMES: Record<SupportedProvider, string> = {
@@ -14,6 +14,7 @@ const PROVIDER_NAMES: Record<SupportedProvider, string> = {
   kleinanzeigen: 'Kleinanzeigen',
   sueddeutsche: 'SZ Immobilienmarkt',
   planethome: 'PlanetHome',
+  deutschebank: 'Deutsche Bank Immobilien',
 };
 
 // Must match provider.name in each provider class (used for checkpoint storage)
@@ -24,6 +25,7 @@ const CHECKPOINT_NAMES: Record<SupportedProvider, string> = {
   kleinanzeigen: 'Kleinanzeigen',
   sueddeutsche: 'Süddeutsche',
   planethome: 'PlanetHome',
+  deutschebank: 'Deutsche Bank',
 };
 
 interface UserState {
@@ -64,6 +66,7 @@ export class TelegramBot {
     this.bot.command('kleinanzeigen', (ctx) => this.handleProviderCommand(ctx, 'kleinanzeigen'));
     this.bot.command('sueddeutsche', (ctx) => this.handleProviderCommand(ctx, 'sueddeutsche'));
     this.bot.command('planethome', (ctx) => this.handleProviderCommand(ctx, 'planethome'));
+    this.bot.command('deutschebank', (ctx) => this.handleProviderCommand(ctx, 'deutschebank'));
 
     this.bot.command('remove_immoscout', (ctx) => this.handleRemoveProvider(ctx, 'immoscout'));
     this.bot.command('remove_immowelt', (ctx) => this.handleRemoveProvider(ctx, 'immowelt'));
@@ -71,6 +74,7 @@ export class TelegramBot {
     this.bot.command('remove_kleinanzeigen', (ctx) => this.handleRemoveProvider(ctx, 'kleinanzeigen'));
     this.bot.command('remove_sueddeutsche', (ctx) => this.handleRemoveProvider(ctx, 'sueddeutsche'));
     this.bot.command('remove_planethome', (ctx) => this.handleRemoveProvider(ctx, 'planethome'));
+    this.bot.command('remove_deutschebank', (ctx) => this.handleRemoveProvider(ctx, 'deutschebank'));
 
     this.bot.on('text', (ctx) => this.handleTextMessage(ctx));
     this.bot.on('message', (ctx) => this.handleAnyMessage(ctx));
@@ -306,6 +310,14 @@ export class TelegramBot {
         `4. Copy URL from browser\n\n` +
         `Example URL:\n` +
         `planethome.de/immobiliensuche?location=München&locationId=R62428&propertyType=FLAT`,
+      deutschebank:
+        `Deutsche Bank Immobilien setup:\n\n` +
+        `1. Go to deutsche-bank-immobilien.de/immobilie-suchen\n` +
+        `2. Select "Kauf" (buy) and filters\n` +
+        `3. Search for location (e.g., München)\n` +
+        `4. Copy URL from browser\n\n` +
+        `Example URL:\n` +
+        `deutsche-bank-immobilien.de/immobilie-suchen/liste/1?offerType=2&town=München`,
     };
 
     const keyboard = Markup.inlineKeyboard([
@@ -467,6 +479,7 @@ export class TelegramBot {
         kleinanzeigen: ['kleinanzeigen.de', 'www.kleinanzeigen.de'],
         sueddeutsche: ['immobilienmarkt.sueddeutsche.de'],
         planethome: ['planethome.de', 'www.planethome.de'],
+        deutschebank: ['deutsche-bank-immobilien.de', 'www.deutsche-bank-immobilien.de'],
       };
 
       if (!expectedDomains[provider].includes(parsed.hostname)) {

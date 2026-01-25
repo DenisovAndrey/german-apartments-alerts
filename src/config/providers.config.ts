@@ -9,6 +9,7 @@ export interface ProvidersConfig {
   wohnungsboerse?: string;
   sparkasse?: string;
   ohneMakler?: string;
+  deutschebank?: string;
 }
 
 export const defaultProvidersConfig: ProvidersConfig = {
