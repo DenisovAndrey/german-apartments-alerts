@@ -31,3 +31,6 @@ coverage/
 
 # VPS setup documentation (contains sensitive info)
 VPS_SETUP.md
+
+# Agent context file (contains tokens and sensitive deployment info)
+AGENT_CONTEXT.md
