@@ -4,7 +4,7 @@ import { ILogger, LoggerFactory } from '../logging/Logger.js';
 import { MonitoringService } from '../monitoring/MonitoringService.js';
 import { Listing } from '../../domain/entities/Listing.js';
 
-const SUPPORTED_PROVIDERS = ['immoscout', 'immowelt', 'immonet', 'kleinanzeigen'] as const;
+const SUPPORTED_PROVIDERS = ['immoscout', 'immowelt', 'immonet', 'kleinanzeigen', 'wggesucht'] as const;
 type SupportedProvider = (typeof SUPPORTED_PROVIDERS)[number];
 
 const PROVIDER_NAMES: Record<SupportedProvider, string> = {
@@ -12,6 +12,7 @@ const PROVIDER_NAMES: Record<SupportedProvider, string> = {
   immowelt: 'Immowelt',
   immonet: 'Immonet',
   kleinanzeigen: 'Kleinanzeigen',
+  wggesucht: 'WG-Gesucht',
 };
 
 // Must match provider.name in each provider class (used for checkpoint storage)
@@ -20,6 +21,7 @@ const CHECKPOINT_NAMES: Record<SupportedProvider, string> = {
   immowelt: 'Immowelt',
   immonet: 'Immonet',
   kleinanzeigen: 'Kleinanzeigen',
+  wggesucht: 'WgGesucht',
 };
 
 interface UserState {
@@ -58,11 +60,13 @@ export class TelegramBot {
     this.bot.command('immowelt', (ctx) => this.handleProviderCommand(ctx, 'immowelt'));
     this.bot.command('immonet', (ctx) => this.handleProviderCommand(ctx, 'immonet'));
     this.bot.command('kleinanzeigen', (ctx) => this.handleProviderCommand(ctx, 'kleinanzeigen'));
+    this.bot.command('wggesucht', (ctx) => this.handleProviderCommand(ctx, 'wggesucht'));
 
     this.bot.command('remove_immoscout', (ctx) => this.handleRemoveProvider(ctx, 'immoscout'));
     this.bot.command('remove_immowelt', (ctx) => this.handleRemoveProvider(ctx, 'immowelt'));
     this.bot.command('remove_immonet', (ctx) => this.handleRemoveProvider(ctx, 'immonet'));
     this.bot.command('remove_kleinanzeigen', (ctx) => this.handleRemoveProvider(ctx, 'kleinanzeigen'));
+    this.bot.command('remove_wggesucht', (ctx) => this.handleRemoveProvider(ctx, 'wggesucht'));
 
     this.bot.on('text', (ctx) => this.handleTextMessage(ctx));
     this.bot.on('message', (ctx) => this.handleAnyMessage(ctx));
@@ -227,7 +231,8 @@ export class TelegramBot {
         `All major platforms in one place:\n` +
         `- ImmobilienScout24\n` +
         `- Immowelt\n` +
-        `- Kleinanzeigen`,
+        `- Kleinanzeigen\n` +
+        `- WG-Gesucht`,
       keyboard
     );
   }
@@ -276,6 +281,14 @@ export class TelegramBot {
         `4. Copy URL from browser\n\n` +
         `Example URL:\n` +
         `kleinanzeigen.de/s-wohnung-mieten/berlin/anzeige:angebote/c203l3331`,
+      wggesucht:
+        `WG-Gesucht setup:\n\n` +
+        `1. Go to wg-gesucht.de\n` +
+        `2. Search for WG rooms or apartments\n` +
+        `3. Select your city and apply filters\n` +
+        `4. Copy URL from browser\n\n` +
+        `Example URL:\n` +
+        `wg-gesucht.de/wg-zimmer-in-Muenchen.90.0.1.0.html`,
     };
 
     const keyboard = Markup.inlineKeyboard([
@@ -433,6 +446,7 @@ export class TelegramBot {
         immowelt: ['immowelt.de', 'www.immowelt.de'],
         immonet: ['immonet.de', 'www.immonet.de'],
         kleinanzeigen: ['kleinanzeigen.de', 'www.kleinanzeigen.de'],
+        wggesucht: ['wg-gesucht.de', 'www.wg-gesucht.de'],
       };
 
       if (!expectedDomains[provider].includes(parsed.hostname)) {

@@ -3,7 +3,7 @@ export interface ProvidersConfig {
   immowelt?: string;
   immonet?: string;
   kleinanzeigen?: string;
-  wgGesucht?: string;
+  wggesucht?: string;
   wohnungsboerse?: string;
   sparkasse?: string;
   ohneMakler?: string;
