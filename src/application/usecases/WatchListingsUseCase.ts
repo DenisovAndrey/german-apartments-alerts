@@ -1,6 +1,7 @@
 import { ScrapingService, UserScrapeResult } from '../services/ScrapingService.js';
 import { User } from '../../domain/entities/User.js';
 import { IListingProvider } from '../../domain/ports/IListingProvider.js';
+import { MonitoringService } from '../../infrastructure/monitoring/MonitoringService.js';
 
 export type OnUserResultCallback = (result: UserScrapeResult) => void;
 export type UserLoaderCallback = () => Promise<UserWithProviders[]>;
@@ -35,10 +36,15 @@ export class WatchListingsUseCase {
     usersWithProviders: UserWithProviders[],
     onUserResult: OnUserResultCallback
   ): Promise<void> {
+    const monitoring = MonitoringService.getInstance();
+    monitoring.onIterationStart();
+
     for (const { user, providers } of usersWithProviders) {
       const result = await this.scrapingService.scrapeForUser(user, providers);
       onUserResult(result);
     }
+
+    await monitoring.onIterationEnd();
   }
 
   stop(): void {

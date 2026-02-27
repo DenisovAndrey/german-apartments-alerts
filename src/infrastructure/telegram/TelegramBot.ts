@@ -30,6 +30,7 @@ interface UserState {
     provider: 'immowelt' | 'immonet';
     estateType: string;
     distributionType: string;
+    extraParams?: string;
   };
 }
 
@@ -326,7 +327,7 @@ export class TelegramBot {
         // Only use the first city if multiple are provided (Immowelt only supports one city per URL)
         const rawCity = text.split(',')[0].trim();
         const city = rawCity.toLowerCase().replace(/\s+/g, '-').replace(/ü/g, 'ue').replace(/ö/g, 'oe').replace(/ä/g, 'ae').replace(/ß/g, 'ss');
-        const { provider, estateType, distributionType } = state.awaitingCityFor;
+        const { provider, estateType, distributionType, extraParams } = state.awaitingCityFor;
 
         // Build URL based on provider - Immonet uses different path format
         let convertedUrl: string;
@@ -336,6 +337,9 @@ export class TelegramBot {
           convertedUrl = `https://www.immonet.de/immobiliensuche/${distributionType}/${typeMap[estateType] || estateType}/${city}`;
         } else {
           convertedUrl = `https://www.immowelt.de/liste/${city}/${estateType}/${distributionType}`;
+        }
+        if (extraParams) {
+          convertedUrl += `?${extraParams}`;
         }
 
         // Process the converted URL directly instead of recursive call
@@ -438,7 +442,7 @@ export class TelegramBot {
   private validateProviderUrl(
     url: string,
     provider: SupportedProvider
-  ): { valid: boolean; error?: string; parsedParams?: { provider: 'immowelt' | 'immonet'; estateType: string; distributionType: string } } {
+  ): { valid: boolean; error?: string; parsedParams?: { provider: 'immowelt' | 'immonet'; estateType: string; distributionType: string; extraParams?: string } } {
     try {
       const parsed = new URL(url);
       const expectedDomains: Record<SupportedProvider, string[]> = {
@@ -476,10 +480,19 @@ export class TelegramBot {
           const distributionType = distType === 'Buy' ? 'kaufen' : 'mieten';
           const estateType = estType?.includes('House') ? 'haeuser' : 'wohnungen';
 
+          const paramsToStrip = ['distributionTypes', 'estateTypes', 'locations'];
+          const extra = new URLSearchParams();
+          for (const [key, value] of parsed.searchParams) {
+            if (!paramsToStrip.includes(key)) {
+              extra.set(key, value);
+            }
+          }
+          const extraParams = extra.toString() || undefined;
+
           return {
             valid: false,
             error: 'needs_city',
-            parsedParams: { provider, estateType, distributionType },
+            parsedParams: { provider, estateType, distributionType, extraParams },
           };
         }
       }

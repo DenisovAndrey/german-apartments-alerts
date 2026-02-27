@@ -1,24 +1,16 @@
 import { FileLogger } from '../logging/FileLogger.js';
 import { AdminBot, ErrorDetails } from '../telegram/AdminBot.js';
 
-interface RecentError {
-  provider: string;
-  userId?: string;
-  url?: string;
-  message: string;
-  timestamp: number;
-}
-
-const ERROR_WINDOW_MS = 60 * 1000; // 60 seconds
-const ERROR_THRESHOLD = 4; // Notify when 4+ unique users have errors
+const CONSECUTIVE_FAILURES_THRESHOLD = 4; // Notify after 4 failed iterations in a row
 
 export class MonitoringService {
   private static instance: MonitoringService | null = null;
   private readonly fileLogger: FileLogger;
   private adminBot: AdminBot | null = null;
   private errorAlertsEnabled = true;
-  private recentErrors: RecentError[] = [];
-  private lastNotificationTime = 0;
+  private currentIterationErrors: Map<string, string[]> = new Map(); // provider -> userIds
+  private consecutiveFailedIterations = 0;
+  private notifiedForCurrentStreak = false;
 
   private constructor() {
     this.fileLogger = FileLogger.getInstance();
@@ -63,6 +55,43 @@ export class MonitoringService {
     await this.adminBot?.notifySearchRemoved(userName, provider);
   }
 
+  onIterationStart(): void {
+    this.currentIterationErrors = new Map();
+  }
+
+  async onIterationEnd(): Promise<void> {
+    if (this.currentIterationErrors.size > 0) {
+      this.consecutiveFailedIterations++;
+
+      if (
+        this.errorAlertsEnabled &&
+        this.consecutiveFailedIterations >= CONSECUTIVE_FAILURES_THRESHOLD &&
+        !this.notifiedForCurrentStreak
+      ) {
+        this.notifiedForCurrentStreak = true;
+
+        const providerSummary = Array.from(this.currentIterationErrors.entries())
+          .map(([p, users]) => `${p}: ${users.length}`)
+          .join(', ');
+
+        const totalUsers = new Set(
+          Array.from(this.currentIterationErrors.values()).flat()
+        ).size;
+
+        const details: ErrorDetails = {
+          type: 'ScrapingError',
+          message: `${this.consecutiveFailedIterations} consecutive iterations with errors.\n${totalUsers} users affected in last iteration.\nBy provider: ${providerSummary}`,
+          provider: 'Multiple',
+          source: 'Scraper',
+        };
+        await this.adminBot?.notifyError(details);
+      }
+    } else {
+      this.consecutiveFailedIterations = 0;
+      this.notifiedForCurrentStreak = false;
+    }
+  }
+
   async logScrapingError(
     provider: string,
     error: Error | string,
@@ -73,48 +102,12 @@ export class MonitoringService {
     const errorMessage = error instanceof Error ? error.message : error;
     this.fileLogger.logScrapingError(provider, errorMessage, userId, url);
 
-    if (!this.errorAlertsEnabled) return;
-
-    // Add to recent errors
-    const now = Date.now();
-    this.recentErrors.push({
-      provider,
-      userId,
-      url,
-      message: errorMessage,
-      timestamp: now,
-    });
-
-    // Clean up old errors outside the window
-    this.recentErrors = this.recentErrors.filter(
-      (e) => now - e.timestamp < ERROR_WINDOW_MS
-    );
-
-    // Count unique users with errors
-    const uniqueUsers = new Set(this.recentErrors.map((e) => e.userId || e.url));
-
-    // Only notify if threshold reached and we haven't notified recently
-    if (uniqueUsers.size >= ERROR_THRESHOLD && now - this.lastNotificationTime > ERROR_WINDOW_MS) {
-      this.lastNotificationTime = now;
-
-      // Group errors by provider
-      const byProvider = new Map<string, number>();
-      for (const e of this.recentErrors) {
-        byProvider.set(e.provider, (byProvider.get(e.provider) || 0) + 1);
-      }
-
-      const providerSummary = Array.from(byProvider.entries())
-        .map(([p, count]) => `${p}: ${count}`)
-        .join(', ');
-
-      const details: ErrorDetails = {
-        type: 'ScrapingError',
-        message: `${uniqueUsers.size} users affected in last 60 seconds.\nBy provider: ${providerSummary}`,
-        provider: 'Multiple',
-        source: 'Scraper',
-      };
-      await this.adminBot?.notifyError(details);
+    const userKey = userId || url || 'unknown';
+    const existing = this.currentIterationErrors.get(provider) || [];
+    if (!existing.includes(userKey)) {
+      existing.push(userKey);
     }
+    this.currentIterationErrors.set(provider, existing);
   }
 
   async logCriticalError(
